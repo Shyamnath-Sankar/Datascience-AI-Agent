@@ -1,0 +1,17 @@
+{
+  "name": "data-science-platform-backend",
+  "version": "1.0.0",
+  "description": "Backend for the Data Science Platform",
+  "main": "main.py",
+  "scripts": {
+    "start": "uvicorn main:app --reload",
+    "test": "pytest"
+  },
+  "keywords": [
+    "fastapi",
+    "data-science",
+    "machine-learning"
+  ],
+  "author": "",
+  "license": "MIT"
+}

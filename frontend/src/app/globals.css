@@ -1,0 +1,204 @@
+@import "tailwindcss";
+
+:root {
+  /* Excel-inspired color palette */
+  --excel-green: #217346;       /* Primary Accent */
+  --excel-blue: #0078D4;        /* Secondary Blue */
+  --excel-bg: #F3F3F3;          /* Background */
+  --excel-text-primary: #323130; /* Text - Primary */
+  --excel-text-muted: #605E5C;  /* Text - Muted */
+  --excel-border: #D2D0CE;      /* Table Borders */
+  --excel-highlight: #FFF2CC;   /* Highlight Cell */
+
+  /* System variables */
+  --background: var(--excel-bg);
+  --foreground: var(--excel-text-primary);
+  --card-background: #ffffff;
+  --primary: var(--excel-green);
+  --primary-foreground: #ffffff;
+  --secondary: var(--excel-blue);
+  --secondary-foreground: #ffffff;
+  --accent: #E6F2E8;
+  --accent-foreground: var(--excel-green);
+  --border: var(--excel-border);
+  --input: var(--excel-border);
+  --ring: var(--excel-green);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Force light mode for all users */
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans, Arial, Helvetica, sans-serif);
+}
+
+/* Custom scrollbar for better UX */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Excel-inspired table styles */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+th {
+  background-color: #F3F3F3;
+  color: var(--excel-text-primary);
+  font-weight: 600;
+  padding: 8px;
+  border-bottom: 1px solid var(--excel-border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--excel-border);
+}
+
+/* Excel-like zebra striping */
+tr:nth-child(even) td {
+  background-color: #FAFAFA;
+}
+
+tr:hover td {
+  background-color: var(--excel-highlight);
+}
+
+/* Excel-inspired card styles */
+.excel-card {
+  border: 1px solid var(--excel-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  background-color: white;
+}
+
+/* Excel-inspired metric cards */
+.metric-card {
+  padding: 16px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--excel-border);
+}
+
+.metric-card.rows {
+  background-color: rgba(33, 115, 70, 0.1);
+  border-left: 4px solid var(--excel-green);
+}
+
+.metric-card.columns {
+  background-color: rgba(0, 120, 212, 0.1);
+  border-left: 4px solid var(--excel-blue);
+}
+
+.metric-card.types {
+  background-color: rgba(255, 242, 204, 0.5);
+  border-left: 4px solid #F1C40F;
+}
+
+/* Excel-inspired tabs */
+.excel-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--excel-border);
+  background-color: #FAFAFA;
+}
+
+.excel-tab {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--excel-text-muted);
+  border: 1px solid transparent;
+  border-bottom: none;
+  margin-right: 2px;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.excel-tab:hover {
+  background-color: #F3F3F3;
+  color: var(--excel-text-primary);
+}
+
+.excel-tab.active {
+  background-color: white;
+  color: var(--excel-green);
+  border-color: var(--excel-border);
+  border-bottom-color: white;
+  margin-bottom: -1px;
+}
+
+/* Excel-inspired ribbon header */
+.excel-ribbon {
+  background-color: var(--excel-green);
+  color: white;
+  padding: 8px 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Excel-inspired buttons */
+.excel-button {
+  background-color: var(--excel-green);
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 2px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.excel-button:hover {
+  background-color: #1a5e38;
+}
+
+.excel-button.secondary {
+  background-color: var(--excel-blue);
+}
+
+.excel-button.secondary:hover {
+  background-color: #0062a3;
+}
+
+.excel-button.outline {
+  background-color: white;
+  color: var(--excel-text-primary);
+  border: 1px solid var(--excel-border);
+}
+
+.excel-button.outline:hover {
+  background-color: #F3F3F3;
+}
