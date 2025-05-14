@@ -92,7 +92,10 @@ export default function DataVisualizationPage() {
   if (loading && !availableCharts) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[var(--excel-green)]"></div>
+          <p className="mt-4 text-[var(--excel-text-muted)]">Loading visualization options...</p>
+        </div>
       </div>
     );
   }
@@ -101,7 +104,11 @@ export default function DataVisualizationPage() {
     return (
       <Card>
         <div className="text-center py-8">
-          <p className="text-red-500">{error}</p>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-red-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-red-600 font-medium mb-2">Error Loading Data</p>
+          <p className="text-[var(--excel-text-muted)]">{error}</p>
         </div>
       </Card>
     );

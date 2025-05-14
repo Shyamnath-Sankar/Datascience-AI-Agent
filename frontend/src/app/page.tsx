@@ -24,11 +24,20 @@ export default function Home() {
 
   return (
     <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Data Science Platform</h1>
-        <p className="mt-2 text-lg text-gray-600">
+      <div className="excel-card p-6 mb-8 text-center">
+        <h1 className="text-2xl font-bold text-[var(--excel-green)]">Data Science Platform</h1>
+        <p className="mt-2 text-[var(--excel-text-muted)]">
           Upload your data to begin analysis, visualization, and machine learning
         </p>
+
+        <div className="mt-4 flex justify-center">
+          <div className="inline-flex items-center px-3 py-1 rounded-full bg-[rgba(33,115,70,0.1)] text-[var(--excel-green)] text-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Excel-inspired UI
+          </div>
+        </div>
       </div>
 
       <Card title="Upload Your Data">
@@ -38,27 +47,52 @@ export default function Home() {
       {uploadedData && (
         <>
           <Card title="Data Preview">
-            <div className="mb-4">
-              <p className="text-sm text-gray-500">
-                Filename: <span className="font-medium">{uploadedData.filename}</span>
-              </p>
-              <p className="text-sm text-gray-500">
-                Rows: <span className="font-medium">{uploadedData.rows}</span>,
-                Columns: <span className="font-medium">{uploadedData.columns}</span>
-              </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="metric-card rows">
+                <p className="text-sm text-[var(--excel-text-muted)] mb-1">Filename</p>
+                <div className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-[var(--excel-green)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="text-lg font-medium text-[var(--excel-text-primary)]">{uploadedData.filename}</p>
+                </div>
+              </div>
+
+              <div className="metric-card rows">
+                <p className="text-sm text-[var(--excel-text-muted)] mb-1">Rows</p>
+                <div className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-[var(--excel-green)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="text-2xl font-bold text-[var(--excel-text-primary)]">{uploadedData.rows}</p>
+                </div>
+              </div>
+
+              <div className="metric-card columns">
+                <p className="text-sm text-[var(--excel-text-muted)] mb-1">Columns</p>
+                <div className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-[var(--excel-blue)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                  <p className="text-2xl font-bold text-[var(--excel-text-primary)]">{uploadedData.columns}</p>
+                </div>
+              </div>
             </div>
 
             {uploadedData.preview && uploadedData.preview.length > 0 && (
-              <DataTable
-                data={uploadedData.preview}
-                columns={uploadedData.column_names}
-              />
+              <div className="mt-4">
+                <h3 className="text-lg font-medium mb-4 text-[var(--excel-green)]">Data Sample</h3>
+                <DataTable
+                  data={uploadedData.preview}
+                  columns={uploadedData.column_names}
+                />
+              </div>
             )}
 
             <div className="mt-6 flex justify-end">
               <button
                 onClick={handleContinue}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="excel-button"
               >
                 Continue to Data Profile
               </button>
