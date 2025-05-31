@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any, List
 import pandas as pd
 import numpy as np
 import json
-from ..utils.session_manager import get_session_data
+from ..utils.session_manager import get_session_data, get_active_file_id
 from ..utils.file_handler import get_dataframe
 
 router = APIRouter()
@@ -17,9 +17,13 @@ async def generate_chart_data(
     Generate data for various chart types.
     """
     try:
-        df = get_dataframe(session_id)
+        # Get the active file ID for the session
+        active_file_id = get_active_file_id(session_id)
+
+        # Get the dataframe for the active file
+        df = get_dataframe(session_id, active_file_id)
         if df is None:
-            raise HTTPException(status_code=404, detail="Dataset not found")
+            raise HTTPException(status_code=404, detail="Dataset not found or no active file selected")
 
         # Extract parameters
         chart_type = chart_params.get("chart_type")
@@ -186,9 +190,13 @@ async def get_available_charts(session_id: str):
     Get information about available chart types based on the dataset.
     """
     try:
-        df = get_dataframe(session_id)
+        # Get the active file ID for the session
+        active_file_id = get_active_file_id(session_id)
+
+        # Get the dataframe for the active file
+        df = get_dataframe(session_id, active_file_id)
         if df is None:
-            raise HTTPException(status_code=404, detail="Dataset not found")
+            raise HTTPException(status_code=404, detail="Dataset not found or no active file selected")
 
         # Identify numeric and categorical columns
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()

@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { FileManager } from '@/components/data/FileManager';
 import { trainModel, predict, getDataSummary } from '@/lib/api';
 
 export default function MachineLearningPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [dataLoading, setDataLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,10 +42,10 @@ export default function MachineLearningPage() {
     }
   }, []);
 
-  const fetchDataSummary = async (sid: string) => {
+  const fetchDataSummary = async (sid: string, fileId?: string) => {
     try {
       setDataLoading(true);
-      const data = await getDataSummary(sid);
+      const data = await getDataSummary(sid, fileId);
 
       // Extract column information
       const numericColumns = data.numeric_columns || [];
@@ -56,11 +58,21 @@ export default function MachineLearningPage() {
         all_columns: allColumns
       });
 
+      setActiveFileId(data.file_id || null);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dataset information');
     } finally {
       setDataLoading(false);
+    }
+  };
+
+  const handleFileSelect = (fileId: string) => {
+    if (sessionId) {
+      fetchDataSummary(sessionId, fileId);
+      // Reset model result when switching files
+      setModelResult(null);
+      setError(null);
     }
   };
 
@@ -136,13 +148,33 @@ export default function MachineLearningPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-lg shadow-md p-6 mb-8">
-        <div className="max-w-3xl mx-auto text-center">
-          <h1 className="text-3xl font-bold text-white">Machine Learning</h1>
-          <p className="mt-2 text-lg text-blue-100">
-            Train models and make predictions on your data
-          </p>
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      {/* File Manager Sidebar */}
+      <div className="lg:col-span-1">
+        <Card title="File Manager">
+          {sessionId && (
+            <FileManager
+              sessionId={sessionId}
+              onFileSelect={handleFileSelect}
+              activeFileId={activeFileId}
+            />
+          )}
+        </Card>
+      </div>
+
+      {/* Main Content */}
+      <div className="lg:col-span-3 space-y-6">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-lg shadow-md p-6 mb-8">
+          <div className="max-w-3xl mx-auto text-center">
+            <h1 className="text-3xl font-bold text-white">Machine Learning</h1>
+            <p className="mt-2 text-lg text-blue-100">
+              Train models and make predictions on your data
+            </p>
+            {activeFileId && (
+              <p className="mt-1 text-xs text-blue-200">
+                Working with file: {activeFileId.slice(0, 8)}...
+              </p>
+            )}
           <div className="mt-4 flex flex-wrap justify-center gap-3">
             <div className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-1.5 text-sm text-white flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -644,6 +676,7 @@ export default function MachineLearningPage() {
             )}
           </Card>
         )}
+        </div>
       </div>
     </div>
   );

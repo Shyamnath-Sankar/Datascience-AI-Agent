@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { DataTable } from '@/components/data/DataTable';
+import { FileManager } from '@/components/data/FileManager';
 import { getDataSummary } from '@/lib/api';
 
 export default function DataProfilePage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [profileData, setProfileData] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,16 +27,23 @@ export default function DataProfilePage() {
     }
   }, []);
 
-  const fetchProfileData = async (sid: string) => {
+  const fetchProfileData = async (sid: string, fileId?: string) => {
     try {
       setLoading(true);
-      const data = await getDataSummary(sid);
+      const data = await getDataSummary(sid, fileId);
       setProfileData(data);
+      setActiveFileId(data.file_id || null);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data profile');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFileSelect = (fileId: string) => {
+    if (sessionId) {
+      fetchProfileData(sessionId, fileId);
     }
   };
 
@@ -84,13 +93,33 @@ export default function DataProfilePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="excel-card p-6 mb-8">
-        <div className="max-w-3xl mx-auto text-center">
-          <h1 className="text-2xl font-bold text-[var(--excel-green)]">Data Profile</h1>
-          <p className="mt-2 text-[var(--excel-text-muted)]">
-            Explore and understand your dataset
-          </p>
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      {/* File Manager Sidebar */}
+      <div className="lg:col-span-1">
+        <Card title="File Manager">
+          {sessionId && (
+            <FileManager
+              sessionId={sessionId}
+              onFileSelect={handleFileSelect}
+              activeFileId={activeFileId}
+            />
+          )}
+        </Card>
+      </div>
+
+      {/* Main Content */}
+      <div className="lg:col-span-3 space-y-6">
+        <div className="excel-card p-6 mb-8">
+          <div className="max-w-3xl mx-auto text-center">
+            <h1 className="text-2xl font-bold text-[var(--excel-green)]">Data Profile</h1>
+            <p className="mt-2 text-[var(--excel-text-muted)]">
+              Explore and understand your dataset
+            </p>
+            {profileData?.file_id && (
+              <p className="mt-1 text-xs text-[var(--excel-text-muted)]">
+                Analyzing file: {profileData.file_id.slice(0, 8)}...
+              </p>
+            )}
 
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="metric-card rows">
@@ -371,6 +400,7 @@ export default function DataProfilePage() {
             </div>
           </Card>
         )}
+        </div>
       </div>
     </div>
   );

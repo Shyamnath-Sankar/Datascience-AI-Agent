@@ -5,9 +5,13 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { getAvailableCharts, generateChartData } from '@/lib/api';
 import { ChartDisplay } from '@/components/data/ChartDisplay';
+import { FileUpload } from '@/components/data/FileUpload';
+import { FileManager } from '@/components/data/FileManager';
 
 export default function DataVisualizationPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
+  const [uploadedData, setUploadedData] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [availableCharts, setAvailableCharts] = useState<any>(null);
@@ -23,15 +27,53 @@ export default function DataVisualizationPage() {
   useEffect(() => {
     // Get session ID from localStorage
     const storedSessionId = typeof window !== 'undefined' ? localStorage.getItem('sessionId') : null;
+    const storedActiveFileId = typeof window !== 'undefined' ? localStorage.getItem('activeFileId') : null;
+
     setSessionId(storedSessionId);
+    setActiveFileId(storedActiveFileId);
 
     if (storedSessionId) {
       fetchAvailableCharts(storedSessionId);
     } else {
       setLoading(false);
-      setError('No session found. Please upload a file first.');
     }
   }, []);
+
+  // Handle file upload success
+  const handleUploadSuccess = (data: any) => {
+    setUploadedData(data);
+    setSessionId(data.session_id);
+    setActiveFileId(data.files[0]?.file_id || null);
+    setError(null);
+
+    // Store in localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sessionId', data.session_id);
+      if (data.files[0]?.file_id) {
+        localStorage.setItem('activeFileId', data.files[0].file_id);
+      }
+    }
+
+    // Fetch available charts for the new data
+    fetchAvailableCharts(data.session_id);
+  };
+
+  // Handle file selection
+  const handleFileSelect = (fileId: string) => {
+    setActiveFileId(fileId);
+    setChartData(null); // Reset chart data when switching files
+    setError(null);
+
+    // Store in localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('activeFileId', fileId);
+    }
+
+    // Fetch available charts for the selected file
+    if (sessionId) {
+      fetchAvailableCharts(sessionId);
+    }
+  };
 
   const fetchAvailableCharts = async (sid: string) => {
     try {
@@ -100,17 +142,22 @@ export default function DataVisualizationPage() {
     );
   }
 
-  if (error && !availableCharts) {
+  if (!sessionId && !loading) {
     return (
-      <Card>
-        <div className="text-center py-8">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-red-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-red-600 font-medium mb-2">Error Loading Data</p>
-          <p className="text-[var(--excel-text-muted)]">{error}</p>
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-lg shadow-md p-6 mb-8">
+          <div className="max-w-3xl mx-auto text-center">
+            <h1 className="text-3xl font-bold text-white">Data Visualization</h1>
+            <p className="mt-2 text-lg text-blue-100">
+              Upload your data to create interactive charts and visualizations
+            </p>
+          </div>
         </div>
-      </Card>
+
+        <Card title="Upload Your Data">
+          <FileUpload onUploadSuccess={handleUploadSuccess} />
+        </Card>
+      </div>
     );
   }
 
@@ -158,7 +205,27 @@ export default function DataVisualizationPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* File Upload Section */}
+      {sessionId && (
+        <Card title="Upload Additional Files">
+          <FileUpload onUploadSuccess={handleUploadSuccess} sessionId={sessionId} />
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* File Manager Sidebar */}
+        <div className="lg:col-span-1">
+          <Card title="File Manager">
+            {sessionId && (
+              <FileManager
+                sessionId={sessionId}
+                onFileSelect={handleFileSelect}
+                activeFileId={activeFileId}
+              />
+            )}
+          </Card>
+        </div>
+
         {/* Chart Configuration Panel */}
         <div className="lg:col-span-1">
           <Card title="Chart Configuration">

@@ -3,14 +3,23 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { FileManager } from '@/components/data/FileManager';
 import { handleMissingValues, handleOutliers } from '@/lib/api';
 
 export default function DataCleaningPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('missing');
+
+  const handleFileSelect = (fileId: string) => {
+    setActiveFileId(fileId);
+    // Clear any previous messages when switching files
+    setError(null);
+    setSuccess(null);
+  };
 
   useEffect(() => {
     // Get session ID from localStorage
@@ -28,13 +37,13 @@ export default function DataCleaningPage() {
       setLoading(true);
       setError(null);
       setSuccess(null);
-      
+
       const operations = {
         [operation]: params
       };
-      
+
       const result = await handleMissingValues(sessionId, operations);
-      
+
       setSuccess(`Successfully applied ${operation}. Removed ${result.original_rows - result.cleaned_rows} rows with missing values.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to handle missing values');
@@ -53,13 +62,13 @@ export default function DataCleaningPage() {
       setLoading(true);
       setError(null);
       setSuccess(null);
-      
+
       const operations = {
         [operation]: params
       };
-      
+
       const result = await handleOutliers(sessionId, operations);
-      
+
       setSuccess(`Successfully applied ${operation}. Removed ${result.rows_removed} outliers.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to handle outliers');
@@ -79,13 +88,33 @@ export default function DataCleaningPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Data Cleaning</h1>
-        <p className="mt-2 text-lg text-gray-600">
-          Clean and prepare your data for analysis
-        </p>
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      {/* File Manager Sidebar */}
+      <div className="lg:col-span-1">
+        <Card title="File Manager">
+          {sessionId && (
+            <FileManager
+              sessionId={sessionId}
+              onFileSelect={handleFileSelect}
+              activeFileId={activeFileId}
+            />
+          )}
+        </Card>
       </div>
+
+      {/* Main Content */}
+      <div className="lg:col-span-3 space-y-6">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Data Cleaning</h1>
+          <p className="mt-2 text-lg text-gray-600">
+            Clean and prepare your data for analysis
+          </p>
+          {activeFileId && (
+            <p className="mt-1 text-xs text-gray-500">
+              Working with file: {activeFileId.slice(0, 8)}...
+            </p>
+          )}
+        </div>
 
       {/* Tab navigation */}
       <div className="border-b border-gray-200">
@@ -155,7 +184,7 @@ export default function DataCleaningPage() {
                   Remove rows that contain missing values in selected columns.
                 </p>
                 <div className="flex space-x-4">
-                  <Button 
+                  <Button
                     onClick={() => handleMissingValueOperation('drop_rows', { columns: [] })}
                     disabled={loading}
                   >
@@ -171,21 +200,21 @@ export default function DataCleaningPage() {
                   Replace missing values with calculated or specified values.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button 
+                  <Button
                     onClick={() => handleMissingValueOperation('fill_mean', { columns: ['column1', 'column2'] })}
                     disabled={loading}
                     variant="secondary"
                   >
                     Fill with Mean
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => handleMissingValueOperation('fill_median', { columns: ['column1', 'column2'] })}
                     disabled={loading}
                     variant="secondary"
                   >
                     Fill with Median
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => handleMissingValueOperation('fill_mode', { columns: ['column1', 'column2'] })}
                     disabled={loading}
                     variant="secondary"
@@ -207,13 +236,13 @@ export default function DataCleaningPage() {
                   Identify and remove outliers using different methods.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button 
+                  <Button
                     onClick={() => handleOutlierOperation('z_score', { columns: ['column1', 'column2'], threshold: 3 })}
                     disabled={loading}
                   >
                     Z-Score Method (±3 std)
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => handleOutlierOperation('iqr', { columns: ['column1', 'column2'], factor: 1.5 })}
                     disabled={loading}
                   >
@@ -227,8 +256,8 @@ export default function DataCleaningPage() {
                 <p className="text-sm text-gray-600 mb-4">
                   Instead of removing outliers, cap them at specified thresholds.
                 </p>
-                <Button 
-                  onClick={() => handleOutlierOperation('clip', { 
+                <Button
+                  onClick={() => handleOutlierOperation('clip', {
                     columns: ['column1', 'column2'],
                     min: null,
                     max: null
@@ -270,6 +299,7 @@ export default function DataCleaningPage() {
             </div>
           </Card>
         )}
+        </div>
       </div>
     </div>
   );

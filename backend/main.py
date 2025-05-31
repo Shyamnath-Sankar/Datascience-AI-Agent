@@ -8,7 +8,7 @@ import uuid
 from typing import List, Optional, Dict, Any
 
 # Import modules for different functionalities
-from app.routers import data_upload, data_profile, data_cleaning, machine_learning, data_visualization
+from app.routers import data_upload, data_profile, data_cleaning, machine_learning, data_visualization, data_editor, ai_agent, specialized_agents
 from app.utils.session_manager import get_session_data, create_session
 
 app = FastAPI(title="Data Science Platform API", 
@@ -30,6 +30,9 @@ app.include_router(data_profile.router, prefix="/api/profile", tags=["Data Profi
 app.include_router(data_cleaning.router, prefix="/api/cleaning", tags=["Data Cleaning"])
 app.include_router(machine_learning.router, prefix="/api/ml", tags=["Machine Learning"])
 app.include_router(data_visualization.router, prefix="/api/visualization", tags=["Data Visualization"])
+app.include_router(data_editor.router, prefix="/api/editor", tags=["Data Editor"])
+app.include_router(ai_agent.router, prefix="/api/agent", tags=["AI Agent"])
+app.include_router(specialized_agents.router, prefix="/api/agents", tags=["Specialized Agents"])
 
 @app.get("/")
 async def root():
