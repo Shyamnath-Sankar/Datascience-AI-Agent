@@ -10,17 +10,15 @@ numpy>=1.24.0
 pandas>=2.1.0
 matplotlib>=3.7.0
 seaborn>=0.12.0
+scipy>=1.11.0
 
 # Data handling and processing
 joblib>=1.3.0
 python-dotenv>=1.0.0
+openpyxl>=3.1.0
 
 # AI and code execution
-google-generativeai>=0.3.0
-langchain>=0.1.0
-langchain-google-genai>=1.0.0
-langchain-core>=0.1.0
-crewai>=0.28.0
+google-genai>=1.0.0
 
 # Optional: for more advanced ML capabilities
 # xgboost>=2.0.0

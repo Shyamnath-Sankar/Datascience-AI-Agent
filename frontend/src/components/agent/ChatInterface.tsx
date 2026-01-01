@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { Button } from '@/components/ui/Button';
@@ -11,6 +13,15 @@ interface Message {
     code: string;
   }>;
   timestamp: Date;
+  executionResult?: ExecutionResult;
+}
+
+interface ExecutionResult {
+  success: boolean;
+  output: string;
+  error?: string;
+  plots: string[];
+  variables: Record<string, unknown>;
 }
 
 interface ChatInterfaceProps {
@@ -22,10 +33,10 @@ interface ChatInterfaceProps {
   onClearChat: () => void;
 }
 
-export function ChatInterface({ 
-  messages, 
-  onSendMessage, 
-  onExecuteCode, 
+export function ChatInterface({
+  messages,
+  onSendMessage,
+  onExecuteCode,
   loading = false,
   sessionId,
   onClearChat
@@ -43,7 +54,7 @@ export function ChatInterface({
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
     }
   }, [inputMessage]);
 
@@ -64,71 +75,106 @@ export function ChatInterface({
 
   const suggestedQuestions = [
     "What are the key insights from my data?",
-    "Show me charts to understand my data better",
-    "What patterns can you find in this data?",
-    "Which factors are most important?",
-    "Are there any unusual values I should know about?",
-    "What trends do you see over time?",
-    "How can I improve my business based on this data?",
-    "What should I focus on first?"
+    "Show me a summary of all columns",
+    "Create a visualization to understand trends",
+    "Find patterns and correlations",
+    "What unusual values should I know about?",
+    "How is my data distributed?",
+    "Compare different categories in my data",
+    "What recommendations do you have?"
   ];
 
   return (
     <div className="h-full flex flex-col bg-white">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--excel-border)] bg-gray-50">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--excel-border)] bg-gradient-to-r from-gray-50 to-white">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--excel-text-primary)]">Your Data Assistant</h2>
-          <p className="text-sm text-gray-600">
-            {sessionId ? 'Ask me anything about your data in plain English' : 'Upload data to get started'}
+          <h2 className="text-lg font-semibold text-[var(--excel-text-primary)] flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm">
+              AI
+            </span>
+            Data Assistant
+          </h2>
+          <p className="text-sm text-gray-600 ml-10">
+            {sessionId ? 'Ask me anything about your data' : 'Upload data to get started'}
           </p>
         </div>
-        {messages.length > 0 && (
-          <Button
-            onClick={onClearChat}
-            variant="outline"
-            size="sm"
-            className="text-xs"
-          >
-            Clear Chat
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {loading && (
+            <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              Analyzing...
+            </div>
+          )}
+          {messages.length > 0 && (
+            <Button
+              onClick={onClearChat}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              Clear Chat
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div className="flex-1 overflow-y-auto px-6 py-4 bg-gradient-to-b from-gray-50/50 to-white">
         {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center">
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 mx-auto bg-[var(--excel-blue)] rounded-full flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Welcome! I'm here to help with your data</h3>
-              <p className="text-gray-600 max-w-md">
-                I can answer questions about your data, create charts, and find insights to help your business.
-                {!sessionId && " Please upload some data first to get started."}
-              </p>
-            </div>
-
-            {sessionId && (
-              <div className="w-full max-w-2xl">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Try asking:</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {suggestedQuestions.map((question, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setInputMessage(question)}
-                      className="text-left p-3 text-sm bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors"
-                    >
-                      {question}
-                    </button>
-                  ))}
+          loading ? (
+            <div className="h-full flex flex-col items-center justify-center space-y-4">
+              <div className="relative">
+                <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xl">✨</span>
                 </div>
               </div>
-            )}
-          </div>
+              <div className="text-center">
+                <h3 className="text-lg font-medium text-gray-900">Analyzing Data</h3>
+                <p className="text-gray-500 max-w-sm mt-1">
+                  I'm processing your dataset to find insights. This typically takes 10-20 seconds.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center">
+              <div className="text-center mb-8">
+                <div className="w-20 h-20 mx-auto bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Welcome! I'm your Data Assistant</h3>
+                <p className="text-gray-600 max-w-md">
+                  I can analyze your data, create visualizations, and provide actionable insights.
+                  {!sessionId && " Please upload some data first to get started."}
+                </p>
+              </div>
+
+              {sessionId && (
+                <div className="w-full max-w-2xl">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Quick Start - Try asking:
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {suggestedQuestions.map((question, index) => (
+                      <button
+                        key={index}
+                        onClick={() => onSendMessage(question)}
+                        className="text-left p-3 text-sm bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg transition-all duration-200 shadow-sm hover:shadow"
+                      >
+                        <span className="text-gray-700">{question}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
         ) : (
           <div className="space-y-4">
             {messages.map((message) => (
@@ -139,22 +185,23 @@ export function ChatInterface({
                 codeBlocks={message.codeBlocks}
                 timestamp={message.timestamp}
                 onExecuteCode={onExecuteCode}
+                executionResult={message.executionResult}
               />
             ))}
             {loading && (
               <div className="flex justify-start mb-4">
                 <div className="flex items-start space-x-3">
-                  <div className="w-8 h-8 rounded-full bg-[var(--excel-blue)] flex items-center justify-center text-white text-sm font-medium">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-medium shadow">
                     AI
                   </div>
-                  <div className="bg-white border border-[var(--excel-border)] rounded-lg px-4 py-3">
-                    <div className="flex items-center space-x-2">
+                  <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm">
+                    <div className="flex items-center space-x-3">
                       <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }}></div>
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
                       </div>
-                      <span className="text-sm text-gray-500">Thinking...</span>
+                      <span className="text-sm text-gray-500">Analyzing your data...</span>
                     </div>
                   </div>
                 </div>
@@ -166,31 +213,39 @@ export function ChatInterface({
       </div>
 
       {/* Input */}
-      <div className="border-t border-[var(--excel-border)] bg-white p-4">
+      <div className="border-t border-gray-200 bg-white p-4">
         <form onSubmit={handleSubmit} className="flex space-x-3">
-          <div className="flex-1">
+          <div className="flex-1 relative">
             <textarea
               ref={textareaRef}
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={sessionId ? "Ask me anything about your data in plain English..." : "Upload data first to start chatting"}
+              placeholder={sessionId ? "Ask me anything about your data..." : "Upload data first to start chatting"}
               disabled={!sessionId || loading}
-              className="w-full px-4 py-3 border border-[var(--excel-border)] rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-[var(--excel-green)] focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+              className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 shadow-sm"
               rows={1}
               style={{ minHeight: '48px', maxHeight: '120px' }}
             />
+            {inputMessage.length > 0 && (
+              <span className="absolute right-3 bottom-3 text-xs text-gray-400">
+                {inputMessage.length}/1000
+              </span>
+            )}
           </div>
           <Button
             type="submit"
             disabled={!inputMessage.trim() || !sessionId || loading}
-            className="px-6 py-3 self-end"
+            className="px-5 py-3 self-end bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 rounded-xl shadow-sm"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
             </svg>
           </Button>
         </form>
+        <p className="text-xs text-gray-400 mt-2 text-center">
+          Press Enter to send • Shift+Enter for new line
+        </p>
       </div>
     </div>
   );
