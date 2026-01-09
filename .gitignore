@@ -1,20 +1,47 @@
 # Python virtual environment
-backend/venv/
+.venv/
 
-# Node modules
-frontend/node_modules/
+# Node.js dependencies
+node_modules/
 
-# Python cache files
+# Environment files (but NOT .env - keep .env tracked)
+.env.local
+.env.*.local
+
+# IDE and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Python cache
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+logs/
 
 # Next.js build output
-frontend/.next/
+.next/
+out/
 
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Frontend build
+dist/
+build/
+
+# Misc
+*.pem
+.cache/
