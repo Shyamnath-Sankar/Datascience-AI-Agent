@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/Button';
+import { listDatabaseConnections } from '@/lib/api';
 
 interface DataFile {
   file_id: string;
@@ -9,10 +9,19 @@ interface DataFile {
   size: number;
 }
 
+interface DatabaseConnection {
+  connection_id: string;
+  database: string;
+  host: string;
+  db_type: string;
+}
+
 interface DataSelectorProps {
   sessionId: string | null;
   activeFileId: string | null;
+  activeConnectionId?: string | null;
   onFileSelect: (fileId: string) => void;
+  onConnectionSelect: (connectionId: string) => void;
   onGenerateInsights: () => void;
   className?: string;
 }
@@ -20,175 +29,218 @@ interface DataSelectorProps {
 export function DataSelector({ 
   sessionId, 
   activeFileId, 
+  activeConnectionId,
   onFileSelect, 
+  onConnectionSelect,
   onGenerateInsights,
   className = '' 
 }: DataSelectorProps) {
+  const [activeTab, setActiveTab] = useState<'files' | 'databases'>('databases');
   const [availableFiles, setAvailableFiles] = useState<DataFile[]>([]);
+  const [availableConnections, setAvailableConnections] = useState<DatabaseConnection[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (sessionId) {
-      loadAvailableFiles();
+      if (activeTab === 'files') {
+        loadAvailableFiles();
+      } else {
+        loadAvailableConnections();
+      }
     }
-  }, [sessionId]);
+  }, [sessionId, activeTab]);
 
   const loadAvailableFiles = async () => {
     if (!sessionId) return;
-    
     setLoading(true);
     setError(null);
-    
     try {
       const response = await fetch(`http://localhost:8000/api/upload/files?session_id=${sessionId}`);
       if (response.ok) {
         const data = await response.json();
         setAvailableFiles(data.files || []);
-      } else {
-        setError('Failed to load files');
       }
     } catch (error) {
       console.error('Error loading files:', error);
-      setError('Error loading files');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAvailableConnections = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await listDatabaseConnections();
+      setAvailableConnections(result.connections || []);
+    } catch (error) {
+      console.error('Error loading connections:', error);
+      setError('Failed to load connections');
     } finally {
       setLoading(false);
     }
   };
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return '0 B';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString();
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
   if (!sessionId) {
     return (
-      <div className={`bg-yellow-50 border border-yellow-200 rounded-lg p-4 ${className}`}>
-        <div className="flex items-center space-x-2">
-          <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-          </svg>
-          <div>
-            <p className="text-sm font-medium text-yellow-800">No Session Active</p>
-            <p className="text-xs text-yellow-600">Please upload data first to start using the AI agent.</p>
-          </div>
-        </div>
+      <div className={`bg-[var(--bg-secondary)] border border-dashed border-[var(--border-color)] rounded-xl p-6 text-center ${className}`}>
+        <p className="text-sm text-[var(--text-secondary)]">No active session</p>
+        <p className="text-xs text-[var(--text-tertiary)] mt-1">Connect a database to start.</p>
       </div>
     );
   }
 
   return (
-    <div className={`bg-white border border-[var(--excel-border)] rounded-lg ${className}`}>
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-[var(--excel-border)] bg-gray-50">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[var(--excel-text-primary)]">Available Data</h3>
-          <Button
-            onClick={onGenerateInsights}
-            size="sm"
-            variant="outline"
-            disabled={!activeFileId}
-            className="text-xs"
-          >
-            Generate Insights
-          </Button>
-        </div>
+    <div className={`flex flex-col h-full ${className}`}>
+      {/* Header Tabs */}
+      <div className="flex items-center bg-[var(--bg-secondary)] p-1 rounded-lg border border-[var(--border-color)] mb-4">
+        <button
+          onClick={() => setActiveTab('databases')}
+          className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
+            activeTab === 'databases'
+              ? 'bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-sm'
+              : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
+          }`}
+        >
+          Databases
+        </button>
+        <button
+          onClick={() => setActiveTab('files')}
+          className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
+            activeTab === 'files'
+              ? 'bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-sm'
+              : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
+          }`}
+        >
+          Files
+        </button>
       </div>
 
-      {/* Content */}
-      <div className="p-4">
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto min-h-0 space-y-2 pr-1 custom-scrollbar">
         {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="text-sm text-gray-500">Loading files...</div>
+          <div className="flex flex-col items-center justify-center py-10 opacity-50">
+            <div className="w-5 h-5 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full animate-spin"></div>
           </div>
-        ) : error ? (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-            <p className="text-sm text-red-700">{error}</p>
-            <button
-              onClick={loadAvailableFiles}
-              className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
-            >
-              Try again
-            </button>
-          </div>
-        ) : availableFiles.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="w-12 h-12 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-3">
-              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+        ) : activeTab === 'databases' ? (
+          availableConnections.length === 0 ? (
+            <div className="text-center py-8 px-4 bg-[var(--bg-secondary)]/50 rounded-xl border border-dashed border-[var(--border-color)]">
+              <div className="w-8 h-8 mx-auto bg-[var(--bg-tertiary)] rounded-full flex items-center justify-center mb-2 text-[var(--text-tertiary)]">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>
+              </div>
+              <p className="text-xs text-[var(--text-secondary)]">No connections found</p>
+              <a href="/database" className="text-xs text-[var(--accent-primary)] hover:underline mt-1 block">Add Connection →</a>
             </div>
-            <p className="text-sm text-gray-500">No data files available</p>
-            <p className="text-xs text-gray-400 mt-1">Upload some data to get started</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {availableFiles.map((file) => (
+          ) : (
+            availableConnections.map((conn) => (
               <div
-                key={file.file_id}
-                onClick={() => onFileSelect(file.file_id)}
-                className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                  activeFileId === file.file_id
-                    ? 'border-[var(--excel-green)] bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                key={conn.connection_id}
+                onClick={() => onConnectionSelect(conn.connection_id)}
+                className={`group relative p-3 rounded-xl border transition-all cursor-pointer ${
+                  activeConnectionId === conn.connection_id
+                    ? 'bg-[var(--accent-subtle)] border-[var(--accent-primary)] shadow-sm'
+                    : 'bg-[var(--bg-primary)] border-[var(--border-color)] hover:border-[var(--accent-primary)]/50'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-2 h-2 rounded-full ${
-                        activeFileId === file.file_id ? 'bg-[var(--excel-green)]' : 'bg-gray-300'
-                      }`} />
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {file.filename}
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-4 mt-1">
-                      <span className="text-xs text-gray-500 uppercase">
-                        {file.file_type}
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg flex-shrink-0 ${
+                    activeConnectionId === conn.connection_id
+                      ? 'bg-[var(--accent-primary)] text-white'
+                      : 'bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]'
+                  }`}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className={`text-sm font-medium truncate ${
+                      activeConnectionId === conn.connection_id ? 'text-[var(--accent-primary)]' : 'text-[var(--text-primary)]'
+                    }`}>
+                      {conn.database}
+                    </h4>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--text-tertiary)] bg-[var(--bg-tertiary)] px-1.5 py-0.5 rounded-sm">
+                        {conn.db_type}
                       </span>
-                      <span className="text-xs text-gray-500">
-                        {formatFileSize(file.size)}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {formatDate(file.upload_time)}
+                      <span className="text-[10px] text-[var(--text-tertiary)] truncate">
+                        {conn.host}
                       </span>
                     </div>
                   </div>
-                  {activeFileId === file.file_id && (
-                    <div className="flex-shrink-0">
-                      <svg className="w-4 h-4 text-[var(--excel-green)]" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
+                  {activeConnectionId === conn.connection_id && (
+                    <div className="absolute right-3 top-3 w-2 h-2 bg-[var(--accent-primary)] rounded-full shadow-[0_0_0_2px_white]"></div>
                   )}
                 </div>
               </div>
-            ))}
-          </div>
+            ))
+          )
+        ) : (
+          availableFiles.length === 0 ? (
+            <div className="text-center py-8 px-4 bg-[var(--bg-secondary)]/50 rounded-xl border border-dashed border-[var(--border-color)]">
+              <p className="text-xs text-[var(--text-secondary)]">No files uploaded</p>
+              <a href="/" className="text-xs text-[var(--accent-primary)] hover:underline mt-1 block">Upload File →</a>
+            </div>
+          ) : (
+            availableFiles.map((file) => (
+              <div
+                key={file.file_id}
+                onClick={() => onFileSelect(file.file_id)}
+                className={`group relative p-3 rounded-xl border transition-all cursor-pointer ${
+                  activeFileId === file.file_id
+                    ? 'bg-[var(--accent-subtle)] border-[var(--accent-primary)] shadow-sm'
+                    : 'bg-[var(--bg-primary)] border-[var(--border-color)] hover:border-[var(--accent-primary)]/50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg flex-shrink-0 ${
+                    activeFileId === file.file_id
+                      ? 'bg-[var(--accent-primary)] text-white'
+                      : 'bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] group-hover:text-[var(--text-secondary)]'
+                  }`}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className={`text-sm font-medium truncate ${
+                      activeFileId === file.file_id ? 'text-[var(--accent-primary)]' : 'text-[var(--text-primary)]'
+                    }`}>
+                      {file.filename}
+                    </h4>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--text-tertiary)] bg-[var(--bg-tertiary)] px-1.5 py-0.5 rounded-sm">
+                        {file.file_type}
+                      </span>
+                      <span className="text-[10px] text-[var(--text-tertiary)]">
+                        {formatFileSize(file.size)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )
         )}
       </div>
-
-      {/* Footer */}
-      {availableFiles.length > 0 && (
-        <div className="px-4 py-3 border-t border-[var(--excel-border)] bg-gray-50">
-          <p className="text-xs text-gray-500">
-            {availableFiles.length} file{availableFiles.length !== 1 ? 's' : ''} available
-            {activeFileId && (
-              <span className="ml-2 text-[var(--excel-green)]">
-                • {availableFiles.find(f => f.file_id === activeFileId)?.filename} selected
-              </span>
-            )}
-          </p>
-        </div>
-      )}
+      
+      {/* Quick Action */}
+      <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
+        <button
+            onClick={onGenerateInsights}
+            disabled={!activeFileId && !activeConnectionId}
+            className="w-full btn btn-primary text-xs py-2.5 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Auto-Generate Insights
+        </button>
+      </div>
     </div>
   );
 }

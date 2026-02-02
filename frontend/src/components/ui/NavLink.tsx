@@ -10,24 +10,19 @@ interface NavLinkProps {
   icon?: ReactNode;
 }
 
-export default function NavLink({ href, label, icon }: NavLinkProps) {
+export default function NavLink({ href, label }: NavLinkProps) {
   const pathname = usePathname();
   const isActive = pathname === href;
 
   return (
     <Link
       href={href}
-      className={`inline-flex items-center px-3 py-2 text-sm font-medium transition-colors duration-150 ${
+      className={`inline-flex items-center px-4 py-1.5 text-sm font-medium rounded-full transition-colors duration-200 ${
         isActive
-          ? 'bg-[var(--excel-green)] text-white'
-          : 'text-[var(--excel-text-primary)] hover:text-[var(--excel-green)] hover:bg-[#F3F3F3]'
+          ? 'bg-[var(--bg-tertiary)] text-[var(--text-primary)]'
+          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]/50'
       }`}
     >
-      {icon && (
-        <span className={`mr-1.5 ${isActive ? 'text-white' : 'text-[var(--excel-text-muted)]'}`}>
-          {icon}
-        </span>
-      )}
       {label}
     </Link>
   );

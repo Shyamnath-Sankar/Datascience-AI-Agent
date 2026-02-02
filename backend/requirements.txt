@@ -20,6 +20,22 @@ openpyxl>=3.1.0
 # AI and code execution
 google-genai>=1.0.0
 
+# Database connectivity (NEW - for SQL integration)
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0  # PostgreSQL adapter
+pymysql>=1.1.0  # MySQL adapter
+
+# Vanna AI for enhanced text-to-SQL
+vanna>=0.5.0
+chromadb>=0.4.0  # Vector store for Vanna
+
+
+# Optional: Additional database adapters
+# redshift-connector>=2.0.0  # Amazon Redshift
+# snowflake-connector-python>=3.0.0  # Snowflake
+# google-cloud-bigquery>=3.0.0  # BigQuery
+# cx_Oracle>=8.0.0  # Oracle
+
 # Optional: for more advanced ML capabilities
 # xgboost>=2.0.0
 # lightgbm>=4.0.0

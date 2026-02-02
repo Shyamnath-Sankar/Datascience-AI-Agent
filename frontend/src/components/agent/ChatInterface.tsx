@@ -31,6 +31,7 @@ interface ChatInterfaceProps {
   loading?: boolean;
   sessionId: string | null;
   onClearChat: () => void;
+  hideHistory?: boolean;
 }
 
 export function ChatInterface({
@@ -39,11 +40,20 @@ export function ChatInterface({
   onExecuteCode,
   loading = false,
   sessionId,
-  onClearChat
+  onClearChat,
+  hideHistory = false
 }: ChatInterfaceProps) {
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Suggested questions for quick start
+  const suggestedQuestions: string[] = [
+    "What are the key statistics in my data?",
+    "Show me a summary of missing values",
+    "Create a visualization of the main trends",
+    "What patterns do you see in the data?",
+  ];
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -73,19 +83,39 @@ export function ChatInterface({
     }
   };
 
-  const suggestedQuestions = [
-    "What are the key insights from my data?",
-    "Show me a summary of all columns",
-    "Create a visualization to understand trends",
-    "Find patterns and correlations",
-    "What unusual values should I know about?",
-    "How is my data distributed?",
-    "Compare different categories in my data",
-    "What recommendations do you have?"
-  ];
+  if (hideHistory) {
+    return (
+      <div className="bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl shadow-sm">
+        <form onSubmit={handleSubmit} className="p-2 relative">
+          <textarea
+            ref={textareaRef}
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={sessionId ? "Ask a follow-up question..." : "Select a data source first"}
+            disabled={!sessionId || loading}
+            className="w-full px-4 py-3 pr-12 bg-transparent text-[var(--text-primary)] placeholder-[var(--text-tertiary)] resize-none focus:outline-none"
+            rows={1}
+            style={{ minHeight: '44px', maxHeight: '120px' }}
+          />
+          <button
+            type="submit"
+            disabled={!inputMessage.trim() || !sessionId || loading}
+            className="absolute right-3 bottom-3 p-1.5 bg-[var(--accent-primary)] text-white rounded-lg hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:hover:bg-[var(--accent-primary)] transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </button>
+        </form>
+      </div>
+    );
+  }
 
+  // Legacy full chat interface (kept for safety if reused elsewhere, but main page uses split view now)
   return (
     <div className="h-full flex flex-col bg-white">
+
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--excel-border)] bg-gradient-to-r from-gray-50 to-white">
         <div>

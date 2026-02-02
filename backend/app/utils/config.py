@@ -43,7 +43,7 @@ class Settings:
         self.max_dataframe_rows: int = int(os.getenv("MAX_DATAFRAME_ROWS", "100000"))
         
         # Model Settings
-        self.gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        self.gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
         
         # Validate critical settings
         self._validate()

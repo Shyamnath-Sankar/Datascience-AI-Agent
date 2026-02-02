@@ -6,10 +6,12 @@ Handles chat requests and routes them to appropriate agents.
 from fastapi import APIRouter, HTTPException, Body
 from typing import Optional, Dict, Any
 import logging
+import pandas as pd
 
 from ..utils.gemini_client import gemini_client, get_gemini_client
 from ..utils.code_executor import code_executor
 from ..utils.session_manager import get_session_data, get_active_file_id
+from ..utils.file_handler import get_dataframe
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -22,24 +24,81 @@ async def chat_with_agent(
     session_id: str,
     message: str = Body(..., embed=True),
     file_id: Optional[str] = Body(None, embed=True),
+    connection_id: Optional[str] = Body(None, embed=True),
     auto_execute: bool = Body(True, embed=True)
 ):
     """
-    Send a message to the AI agent and get a response with optional auto-execution.
+    Send a message to the AI agent and get a response.
+    Supports both file-based analysis (Pandas) and database querying (SQL/Vanna).
     
     Args:
-        session_id: The session ID for data access
+        session_id: The session ID
         message: The user's message
         file_id: Optional specific file to analyze
-        auto_execute: Whether to automatically execute generated code
+        connection_id: Optional database connection ID
+        auto_execute: Whether to automatically execute generated code/SQL
         
     Returns:
-        AI response with optional code execution results
+        AI response with optional execution results
     """
     try:
         # Validate session
         if not session_id:
             raise HTTPException(status_code=400, detail="Session ID is required")
+        
+        # ---------------------------------------------------------
+        # Scenario 1: Database Context (SQL Agent)
+        # ---------------------------------------------------------
+        if connection_id:
+            from ..utils.sql_agent import get_sql_agent
+            
+            # Use the SQL Agent to handle the question
+            agent = get_sql_agent()
+            result = agent.ask(
+                connection_id=connection_id,
+                question=message,
+                session_id=session_id,
+                execute=auto_execute,
+                explain=True,
+                save_to_session=True
+            )
+            
+            if not result.get("success"):
+                return {
+                    "success": False,
+                    "response": result.get("error", "Query failed"),
+                    "code_blocks": [],
+                    "has_code": False,
+                    "session_id": session_id,
+                    "execution_result": None
+                }
+            
+            # Format the SQL Agent response to match the generic chat structure
+            response_text = result.get("explanation", "")
+            if not response_text:
+                response_text = "Here is the result of your query."
+                
+            sql_query = result.get("sql", "")
+            
+            return {
+                "success": True,
+                "response": response_text,
+                "code_blocks": [{"language": "sql", "code": sql_query}] if sql_query else [],
+                "has_code": bool(sql_query),
+                "executed_code": sql_query if auto_execute else None,
+                "execution_result": {
+                    "success": True,
+                    "output": "Query executed successfully",
+                    "data": result.get("data"), # SQL Agent returns structured data
+                    "row_count": result.get("execution", {}).get("row_count", 0)
+                } if auto_execute and result.get("data") else None,
+                "session_id": session_id,
+                "connection_id": connection_id
+            }
+
+        # ---------------------------------------------------------
+        # Scenario 2: File Context (Pandas/Python Agent)
+        # ---------------------------------------------------------
         
         # Use active file if no specific file_id provided
         if file_id is None:
@@ -104,6 +163,7 @@ async def chat_with_agent(
     except Exception as e:
         logger.error(f"Error in chat: {e}")
         raise HTTPException(status_code=500, detail=f"Error in chat: {str(e)}")
+
 
 
 @router.post("/execute-code")
@@ -364,3 +424,165 @@ async def get_agent_status():
             "configured": False,
             "error": str(e)
         }
+
+
+@router.post("/selection-context")
+async def handle_selection_context(
+    session_id: str = Body(..., embed=True),
+    file_id: Optional[str] = Body(None, embed=True),
+    selection: Dict[str, Any] = Body(..., embed=True),
+    question: Optional[str] = Body(None, embed=True),
+    action: Optional[str] = Body(None, embed=True)
+):
+    """
+    Handle AI queries about selected data in the editor.
+    
+    Selection format:
+        {
+            "type": "cells" | "rows" | "columns" | "range",
+            "cells": [{"row": 0, "col": "name", "value": "..."}],
+            "rows": [0, 1, 2],
+            "columns": ["name", "age"],
+            "range": {"startRow": 0, "endRow": 5, "startCol": "name", "endCol": "age"},
+            "data": [...] // actual selected data values
+        }
+    
+    Actions:
+        - analyze: Generate insights about selection
+        - fill_missing: Suggest values for missing cells
+        - detect_outliers: Find outliers in selection
+        - calculate: Perform calculation on selection
+        - stats: Calculate statistics
+    """
+    try:
+        from ..utils.data_edit_agent import data_edit_agent
+        
+        # Get DataFrame
+        if file_id is None:
+            file_id = get_active_file_id(session_id)
+        
+        df = get_dataframe(session_id, file_id)
+        if df is None:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+        
+        # If action is specified, perform quick action
+        if action:
+            result = await _perform_quick_action(action, selection, df, session_id, file_id)
+            return result
+        
+        # If question is provided, analyze with AI
+        if question:
+            # Analyze selection first
+            analysis = data_edit_agent.analyze_selection(selection, df)
+            
+            # Build context for AI
+            context_parts = [
+                f"User selected: {analysis.get('selection_type')} ({analysis.get('count')} items)",
+                "\nSelection Analysis:"
+            ]
+            context_parts.extend(analysis.get('insights', []))
+            
+            # Add selection data sample
+            if selection.get('data') and len(selection['data']) <= 10:
+                context_parts.append("\nSelected data:")
+                context_parts.append(str(selection['data'][:10]))
+            
+            context = "\n".join(context_parts)
+            
+            # Get AI response
+            client = get_gemini_client()
+            enhanced_question = f"{context}\n\nUser question: {question}"
+            
+            response = client.generate_response(
+                session_id=session_id,
+                user_message=enhanced_question,
+                file_id=file_id,
+                use_chat_history=False
+            )
+            
+            return {
+                "success": True,
+                "response": response.get("response", ""),
+                "analysis": analysis,
+                "code_blocks": response.get("code_blocks", [])
+            }
+        
+        # Default: just return analysis
+        analysis = data_edit_agent.analyze_selection(selection, df)
+        return {
+            "success": True,
+            "response": "\n".join(analysis.get('insights', [])),
+            "analysis": analysis
+        }
+        
+    except Exception as e:
+        logger.error(f"Error handling selection context: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _perform_quick_action(
+    action: str,
+    selection: Dict[str, Any],
+    df: pd.DataFrame,
+    session_id: str,
+    file_id: str
+) -> Dict[str, Any]:
+    """Perform quick action on selection."""
+    from ..utils.data_edit_agent import data_edit_agent
+    
+    selection_type = selection.get('type')
+    
+    if action == 'stats' and selection_type == 'columns':
+        columns = selection.get('columns', [])
+        stats_result = {}
+        
+        for col in columns:
+            if col in df.columns:
+                col_data = df[col].dropna()
+                if pd.api.types.is_numeric_dtype(col_data):
+                    stats_result[col] = {
+                        'count': len(col_data),
+                        'mean': float(col_data.mean()),
+                        'median': float(col_data.median()),
+                        'std': float(col_data.std()),
+                        'min': float(col_data.min()),
+                        'max': float(col_data.max())
+                    }
+        
+        return {
+            "success": True,
+            "action": action,
+            "result": stats_result,
+            "response": f"Statistics calculated for {len(stats_result)} column(s)"
+        }
+    
+    elif action == 'detect_outliers' and selection_type == 'columns':
+        columns = selection.get('columns', [])
+        outliers_result = {}
+        
+        for col in columns:
+            if col in df.columns and pd.api.types.is_numeric_dtype(df[col]):
+                col_data = df[col].dropna()
+                q1, q3 = col_data.quantile(0.25), col_data.quantile(0.75)
+                iqr = q3 - q1
+                outliers = col_data[(col_data < q1 - 1.5*iqr) | (col_data > q3 + 1.5*iqr)]
+                
+                outliers_result[col] = {
+                    'count': len(outliers),
+                    'percentage': round(len(outliers) / len(col_data) * 100, 2),
+                    'values': outliers.tolist()[:10]  # Limit to 10
+                }
+        
+        return {
+            "success": True,
+            "action": action,
+            "result": outliers_result,
+            "response": f"Detected outliers in {len(outliers_result)} column(s)"
+        }
+    
+    else:
+        return {
+            "success": False,
+            "error": f"Unsupported action: {action} for selection type: {selection_type}"
+        }
+

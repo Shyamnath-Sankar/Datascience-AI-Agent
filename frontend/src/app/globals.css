@@ -1,28 +1,79 @@
 @import "tailwindcss";
 
 :root {
-  /* Excel-inspired color palette */
-  --excel-green: #217346;       /* Primary Accent */
-  --excel-blue: #0078D4;        /* Secondary Blue */
-  --excel-bg: #F3F3F3;          /* Background */
-  --excel-text-primary: #323130; /* Text - Primary */
-  --excel-text-muted: #605E5C;  /* Text - Muted */
-  --excel-border: #D2D0CE;      /* Table Borders */
-  --excel-highlight: #FFF2CC;   /* Highlight Cell */
+  /* Modern Design System Palette (Linear/Vercel inspired) */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary: #9ca3af;
+  
+  --border-color: #e5e7eb;
+  --border-hover: #d1d5db;
+  
+  --accent-primary: #2563eb;    /* Deep Blue */
+  --accent-hover: #1d4ed8;
+  --accent-subtle: #eff6ff;
+  --accent-foreground: #ffffff;
+  
+  --success: #10b981;
+  --success-bg: #ecfdf5;
+  --error: #ef4444;
+  --error-bg: #fef2f2;
+  --warning: #f59e0b;
+  --warning-bg: #fffbeb;
 
-  /* System variables */
-  --background: var(--excel-bg);
-  --foreground: var(--excel-text-primary);
-  --card-background: #ffffff;
-  --primary: var(--excel-green);
-  --primary-foreground: #ffffff;
-  --secondary: var(--excel-blue);
-  --secondary-foreground: #ffffff;
-  --accent: #E6F2E8;
-  --accent-foreground: var(--excel-green);
-  --border: var(--excel-border);
-  --input: var(--excel-border);
-  --ring: var(--excel-green);
+  /* Card Styles */
+  --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --card-shadow-hover: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  /* Legacy variable mapping for compatibility */
+  --background: var(--bg-primary);
+  --foreground: var(--text-primary);
+  --card-background: var(--bg-primary);
+  --primary: var(--accent-primary);
+  --primary-foreground: var(--accent-foreground);
+  --border: var(--border-color);
+  
+  /* Excel legacy mappings (to prevent immediate breakage) */
+  --excel-green: var(--accent-primary);
+  --excel-blue: #0ea5e9;
+  --excel-bg: var(--bg-secondary);
+  --excel-text-primary: var(--text-primary);
+  --excel-text-muted: var(--text-secondary);
+  --excel-border: var(--border-color);
+  --excel-highlight: var(--accent-subtle);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #0a0a0a;
+    --bg-secondary: #171717;
+    --bg-tertiary: #262626;
+    
+    --text-primary: #ededed;
+    --text-secondary: #a1a1aa;
+    --text-tertiary: #52525b;
+    
+    --border-color: #27272a;
+    --border-hover: #3f3f46;
+    
+    --accent-primary: #3b82f6;
+    --accent-hover: #60a5fa;
+    --accent-subtle: #1e293b;
+    
+    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.5);
+    
+    --success: #34d399;
+    --success-bg: #064e3b;
+    --error: #f87171;
+    --error-bg: #7f1d1d;
+  }
 }
 
 @theme inline {
@@ -32,173 +83,141 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Force light mode for all users */
-:root {
-  color-scheme: light;
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans, Arial, Helvetica, sans-serif);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: var(--font-sans, system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom scrollbar for better UX */
+/* Modern Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 10px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: var(--border-color);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: var(--text-tertiary);
 }
 
-/* Excel-inspired table styles */
+/* Modern Table Styles */
+.data-table-container {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
 table {
-  border-collapse: separate;
-  border-spacing: 0;
   width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
 }
 
 th {
-  background-color: #F3F3F3;
-  color: var(--excel-text-primary);
-  font-weight: 600;
-  padding: 8px;
-  border-bottom: 1px solid var(--excel-border);
-  position: sticky;
-  top: 0;
-  z-index: 1;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
 }
 
 td {
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--excel-border);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
 }
 
-/* Excel-like zebra striping */
-tr:nth-child(even) td {
-  background-color: #FAFAFA;
+tr:last-child td {
+  border-bottom: none;
 }
 
 tr:hover td {
-  background-color: var(--excel-highlight);
+  background-color: var(--bg-tertiary);
 }
 
-/* Excel-inspired card styles */
-.excel-card {
-  border: 1px solid var(--excel-border);
-  border-radius: 4px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-  background-color: white;
+/* Modern Card Styles */
+.modern-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
+  padding: 1.5rem;
 }
 
-/* Excel-inspired metric cards */
-.metric-card {
-  padding: 16px;
-  border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--excel-border);
-}
-
-.metric-card.rows {
-  background-color: rgba(33, 115, 70, 0.1);
-  border-left: 4px solid var(--excel-green);
-}
-
-.metric-card.columns {
-  background-color: rgba(0, 120, 212, 0.1);
-  border-left: 4px solid var(--excel-blue);
-}
-
-.metric-card.types {
-  background-color: rgba(255, 242, 204, 0.5);
-  border-left: 4px solid #F1C40F;
-}
-
-/* Excel-inspired tabs */
-.excel-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--excel-border);
-  background-color: #FAFAFA;
-}
-
-.excel-tab {
-  padding: 8px 16px;
-  font-size: 14px;
+/* Button Reset & Base */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
   font-weight: 500;
-  color: var(--excel-text-muted);
-  border: 1px solid transparent;
-  border-bottom: none;
-  margin-right: 2px;
-  border-top-left-radius: 4px;
-  border-top-right-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s;
+  font-size: 0.875rem;
 }
 
-.excel-tab:hover {
-  background-color: #F3F3F3;
-  color: var(--excel-text-primary);
+.btn-primary {
+  background-color: var(--accent-primary);
+  color: white;
 }
 
-.excel-tab.active {
-  background-color: white;
-  color: var(--excel-green);
-  border-color: var(--excel-border);
-  border-bottom-color: white;
-  margin-bottom: -1px;
+.btn-primary:hover {
+  background-color: var(--accent-hover);
 }
 
-/* Excel-inspired ribbon header */
+.btn-secondary {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-hover);
+}
+
+/* Animations (Minimal/None as requested) */
+.no-fade {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Ribbon replacement override */
 .excel-ribbon {
-  background-color: var(--excel-green);
+  background-color: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0;
+  box-shadow: none;
+}
+
+/* Agent Chat Specifics */
+.chat-bubble {
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  max-width: 85%;
+}
+
+.chat-bubble-user {
+  background-color: var(--accent-primary);
   color: white;
-  padding: 8px 16px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-bottom-right-radius: 0;
 }
 
-/* Excel-inspired buttons */
-.excel-button {
-  background-color: var(--excel-green);
-  color: white;
-  border: none;
-  padding: 6px 16px;
-  border-radius: 2px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.excel-button:hover {
-  background-color: #1a5e38;
-}
-
-.excel-button.secondary {
-  background-color: var(--excel-blue);
-}
-
-.excel-button.secondary:hover {
-  background-color: #0062a3;
-}
-
-.excel-button.outline {
-  background-color: white;
-  color: var(--excel-text-primary);
-  border: 1px solid var(--excel-border);
-}
-
-.excel-button.outline:hover {
-  background-color: #F3F3F3;
+.chat-bubble-ai {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-bottom-left-radius: 0;
 }

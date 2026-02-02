@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { FileUpload } from '@/components/data/FileUpload';
 import { FileManager } from '@/components/data/FileManager';
@@ -18,7 +17,8 @@ import {
 export default function PlaygroundPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
-  const [uploadedData, setUploadedData] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_uploadedData, setUploadedData] = useState<any>(null);
   const [gridData, setGridData] = useState<any[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -26,7 +26,8 @@ export default function PlaygroundPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRows, setTotalRows] = useState(0);
-  const [showAddColumn, setShowAddColumn] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_showAddColumn, setShowAddColumn] = useState(false);
   const [availableFiles, setAvailableFiles] = useState<any[]>([]);
   const pageSize = 50;
 
@@ -59,7 +60,7 @@ export default function PlaygroundPage() {
       setLoading(true);
       setError(null);
       
-      const response = await getDataForEditing(sessionId, activeFileId, currentPage, pageSize);
+      const response = await getDataForEditing(sessionId, activeFileId ?? undefined, currentPage, pageSize);
       
       setGridData(response.data || []);
       setColumns(response.columns || []);
@@ -105,7 +106,7 @@ export default function PlaygroundPage() {
     // Calculate actual row index considering pagination
     const actualRowIndex = (currentPage - 1) * pageSize + rowIndex;
     
-    await updateCell(sessionId, actualRowIndex, column, value, activeFileId);
+    await updateCell(sessionId, actualRowIndex, column, value, activeFileId ?? undefined);
     
     // Update local data
     setGridData(prev => {
@@ -120,7 +121,7 @@ export default function PlaygroundPage() {
   const handleAddRow = async (data: Record<string, any>) => {
     if (!sessionId) throw new Error('No session available');
     
-    await addRow(sessionId, data, 'end', activeFileId);
+    await addRow(sessionId, data, 'end', activeFileId ?? undefined);
     
     // Reload data to get the new row
     await loadGridData();
@@ -132,7 +133,7 @@ export default function PlaygroundPage() {
     // Calculate actual row index considering pagination
     const actualRowIndex = (currentPage - 1) * pageSize + rowIndex;
     
-    await deleteRow(sessionId, actualRowIndex, activeFileId);
+    await deleteRow(sessionId, actualRowIndex, activeFileId ?? undefined);
     
     // Reload data to reflect the deletion
     await loadGridData();
@@ -141,7 +142,7 @@ export default function PlaygroundPage() {
   const handleAddColumn = async (columnName: string, dataType: string) => {
     if (!sessionId) throw new Error('No session available');
     
-    await addColumn(sessionId, columnName, dataType, undefined, 'end', activeFileId);
+    await addColumn(sessionId, columnName, dataType, undefined, 'end', activeFileId ?? undefined);
     
     // Reload data to get the new column
     await loadGridData();
@@ -154,7 +155,7 @@ export default function PlaygroundPage() {
       return;
     }
     
-    await deleteColumn(sessionId, columnName, activeFileId);
+    await deleteColumn(sessionId, columnName, activeFileId ?? undefined);
     
     // Reload data to reflect the deletion
     await loadGridData();

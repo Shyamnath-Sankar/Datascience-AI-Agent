@@ -36,8 +36,9 @@ async def get_data_for_editing(
         
         # Convert to records with row indices
         data_records = []
-        for idx, row in paginated_df.iterrows():
-            record = {"_row_index": int(idx)}
+        for i, (idx, row) in enumerate(paginated_df.iterrows()):
+            actual_row_index = start_idx + i
+            record = {"_row_index": actual_row_index}
             for col in df.columns:
                 value = row[col]
                 # Handle NaN and other special values
@@ -61,7 +62,12 @@ async def get_data_for_editing(
             "end_row": end_idx - 1
         }
     
+    except HTTPException:
+        raise
     except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"DEBUG ERROR in get_data_for_editing: {e}")
         raise HTTPException(status_code=500, detail=f"Error retrieving data: {str(e)}")
 
 @router.put("/cell")

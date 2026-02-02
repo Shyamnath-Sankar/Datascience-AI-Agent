@@ -154,12 +154,25 @@ export default function Home() {
                   </div>
                 )}
 
-                <div className="mt-6 flex justify-end">
+                <div className="mt-6 flex justify-between items-center gap-4">
+                  {/* AI Data Editor Button */}
+                  <button
+                    onClick={() => router.push('/editor')}
+                    className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-medium hover:from-blue-600 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center space-x-2"
+                  >
+                    <span className="text-xl">🤖</span>
+                    <span>Open AI Data Editor</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </button>
+
+                  {/* Original button */}
                   <button
                     onClick={handleContinue}
                     className="excel-button"
                   >
-                    Continue to Data Profile
+                    Data Profile
                   </button>
                 </div>
               </Card>

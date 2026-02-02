@@ -54,6 +54,8 @@ export async function listFiles(sessionId: string): Promise<any> {
   return fetchAPI(`/upload/files?session_id=${sessionId}`);
 }
 
+export const getUploadedFiles = listFiles;
+
 export async function selectActiveFile(sessionId: string, fileId: string): Promise<any> {
   const formData = new FormData();
   formData.append('session_id', sessionId);
@@ -156,12 +158,24 @@ export async function getAvailableCharts(sessionId: string): Promise<any> {
 }
 
 // AI Agent
-export async function chatWithAgent(sessionId: string, message: string, fileId?: string, autoExecute: boolean = true): Promise<any> {
+export async function chatWithAgent(
+  sessionId: string, 
+  message: string, 
+  fileId?: string, 
+  autoExecute: boolean = true,
+  connectionId?: string
+): Promise<any> {
   return fetchAPI(`/agent/chat?session_id=${sessionId}`, {
     method: 'POST',
-    body: JSON.stringify({ message, file_id: fileId, auto_execute: autoExecute }),
+    body: JSON.stringify({ 
+      message, 
+      file_id: fileId, 
+      connection_id: connectionId,
+      auto_execute: autoExecute 
+    }),
   });
 }
+
 
 export async function executeCode(sessionId: string, code: string, fileId?: string, autoInstall: boolean = true): Promise<any> {
   return fetchAPI(`/agent/execute-code?session_id=${sessionId}`, {
@@ -337,3 +351,214 @@ export async function deleteColumn(
     method: 'DELETE',
   });
 }
+
+// Inline AI Assistant - Selection Context
+export async function askSelectionContext(
+  sessionId: string,
+  selection: any,
+  question?: string,
+  action?: string,
+  fileId?: string
+): Promise<any> {
+  return fetchAPI(`/agent/selection-context?session_id=${sessionId}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      selection,
+      question,
+      action,
+      file_id: fileId
+    }),
+  });
+}
+
+// ============================================
+// Database & SQL Agent API Functions
+// ============================================
+
+// Database Connection
+export interface DatabaseConnectionParams {
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+  db_type?: string;
+  ssl_mode?: string;
+}
+
+export async function connectDatabase(sessionId: string, params: DatabaseConnectionParams): Promise<any> {
+  return fetchAPI(`/database/connect?session_id=${sessionId}`, {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
+export async function listDatabaseConnections(): Promise<any> {
+  return fetchAPI(`/database/connections`);
+}
+
+export async function getDatabaseConnection(connectionId: string): Promise<any> {
+  return fetchAPI(`/database/connections/${connectionId}`);
+}
+
+export async function disconnectDatabase(connectionId: string): Promise<any> {
+  return fetchAPI(`/database/connections/${connectionId}`, {
+    method: 'DELETE',
+  });
+}
+
+// Natural Language Queries
+export async function askDatabaseQuestion(
+  connectionId: string,
+  sessionId: string,
+  question: string,
+  execute: boolean = true,
+  explain: boolean = true,
+  saveToSession: boolean = true
+): Promise<any> {
+  return fetchAPI(`/database/ask/${connectionId}?session_id=${sessionId}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      question,
+      execute,
+      explain,
+      save_to_session: saveToSession
+    }),
+  });
+}
+
+export async function analyzeDatabase(
+  connectionId: string,
+  sessionId: string,
+  question: string
+): Promise<any> {
+  return fetchAPI(`/database/analyze/${connectionId}?session_id=${sessionId}`, {
+    method: 'POST',
+    body: JSON.stringify({ question }),
+  });
+}
+
+// Direct SQL Execution
+export async function executeDatabaseQuery(
+  connectionId: string,
+  sessionId: string,
+  sql: string,
+  saveToSession: boolean = true
+): Promise<any> {
+  return fetchAPI(`/database/query/${connectionId}?session_id=${sessionId}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      sql,
+      save_to_session: saveToSession
+    }),
+  });
+}
+
+export async function explainSQL(connectionId: string, sql: string): Promise<any> {
+  return fetchAPI(`/database/explain-sql/${connectionId}`, {
+    method: 'POST',
+    body: JSON.stringify({ sql }),
+  });
+}
+
+export async function optimizeSQL(connectionId: string, sql: string): Promise<any> {
+  return fetchAPI(`/database/optimize-sql/${connectionId}`, {
+    method: 'POST',
+    body: JSON.stringify({ sql }),
+  });
+}
+
+// Schema Exploration
+export async function getDatabaseSchema(connectionId: string, schema?: string): Promise<any> {
+  const params = new URLSearchParams();
+  if (schema) params.append('schema', schema);
+  const queryString = params.toString();
+  return fetchAPI(`/database/schema/${connectionId}${queryString ? '?' + queryString : ''}`);
+}
+
+export async function getTableInfo(connectionId: string, tableName: string, schema?: string): Promise<any> {
+  const params = new URLSearchParams();
+  if (schema) params.append('schema', schema);
+  const queryString = params.toString();
+  return fetchAPI(`/database/schema/${connectionId}/table/${tableName}${queryString ? '?' + queryString : ''}`);
+}
+
+export async function getTableSampleData(
+  connectionId: string,
+  tableName: string,
+  limit: number = 10,
+  schema?: string
+): Promise<any> {
+  const params = new URLSearchParams({ limit: limit.toString() });
+  if (schema) params.append('schema', schema);
+  return fetchAPI(`/database/schema/${connectionId}/table/${tableName}/sample?${params.toString()}`);
+}
+
+export async function compareTables(
+  connectionId: string,
+  sessionId: string,
+  table1: string,
+  table2: string
+): Promise<any> {
+  return fetchAPI(`/database/schema/${connectionId}/compare?session_id=${sessionId}`, {
+    method: 'POST',
+    body: JSON.stringify({ table1, table2 }),
+  });
+}
+
+// Training
+export async function trainFromSchema(connectionId: string): Promise<any> {
+  return fetchAPI(`/database/train/${connectionId}/schema`, {
+    method: 'POST',
+  });
+}
+
+export async function addTrainingExample(
+  connectionId: string,
+  question: string,
+  sql: string
+): Promise<any> {
+  return fetchAPI(`/database/train/${connectionId}/example`, {
+    method: 'POST',
+    body: JSON.stringify({ question, sql }),
+  });
+}
+
+export async function addDatabaseDocumentation(
+  connectionId: string,
+  documentation: string
+): Promise<any> {
+  return fetchAPI(`/database/train/${connectionId}/documentation`, {
+    method: 'POST',
+    body: JSON.stringify({ documentation }),
+  });
+}
+
+export async function getTrainingStats(connectionId: string): Promise<any> {
+  return fetchAPI(`/database/train/${connectionId}/stats`);
+}
+
+// Suggestions & History
+export async function getDatabaseSuggestions(connectionId: string): Promise<any> {
+  return fetchAPI(`/database/suggestions/${connectionId}`);
+}
+
+export async function getDatabaseQueryHistory(
+  sessionId: string,
+  connectionId?: string,
+  limit: number = 50
+): Promise<any> {
+  const params = new URLSearchParams({
+    session_id: sessionId,
+    limit: limit.toString()
+  });
+  if (connectionId) params.append('connection_id', connectionId);
+  return fetchAPI(`/database/history?${params.toString()}`);
+}
+
+export async function clearDatabaseQueryHistory(sessionId: string): Promise<any> {
+  return fetchAPI(`/database/history?session_id=${sessionId}`, {
+    method: 'DELETE',
+  });
+}
+

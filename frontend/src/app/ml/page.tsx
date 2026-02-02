@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { FileManager } from '@/components/data/FileManager';
-import { trainModel, predict, getDataSummary } from '@/lib/api';
+import { trainModel, getDataSummary } from '@/lib/api';
 
 export default function MachineLearningPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -503,7 +503,7 @@ export default function MachineLearningPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                           </svg>
                         )}
-                        {modelResult.model_type.split('_').map(word =>
+                        {modelResult.model_type.split('_').map((word: string) =>
                           word.charAt(0).toUpperCase() + word.slice(1)
                         ).join(' ')}
                       </p>
@@ -540,28 +540,25 @@ export default function MachineLearningPage() {
                     Performance Metrics
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
                     {modelResult.metrics && Object.entries(modelResult.metrics).map(([key, value]: [string, any]) => {
                       // Determine color based on metric type
                       let bgColor = 'bg-blue-50';
                       let borderColor = 'border-blue-100';
                       let textColor = 'text-blue-700';
-                      let iconColor = 'text-blue-500';
 
                       if (key.includes('r2')) {
                         bgColor = 'bg-green-50';
                         borderColor = 'border-green-100';
                         textColor = 'text-green-700';
-                        iconColor = 'text-green-500';
                       } else if (key.includes('error') || key.includes('mse') || key.includes('rmse')) {
                         bgColor = 'bg-red-50';
                         borderColor = 'border-red-100';
                         textColor = 'text-red-700';
-                        iconColor = 'text-red-500';
                       } else if (key.includes('accuracy')) {
                         bgColor = 'bg-indigo-50';
                         borderColor = 'border-indigo-100';
                         textColor = 'text-indigo-700';
-                        iconColor = 'text-indigo-500';
                       }
 
                       return (

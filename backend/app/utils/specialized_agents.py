@@ -6,6 +6,7 @@ Each agent is optimized for specific types of data science tasks.
 import logging
 from typing import Dict, List, Any, Optional
 
+from .agent_base import BaseAgent
 from .config import settings
 from .file_handler import get_dataframe
 from .shared_utils import text_processor, data_context_builder
@@ -14,29 +15,6 @@ from .gemini_client import get_gemini_client
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
-
-class BaseAgent:
-    """Base class for all specialized agents."""
-    
-    def __init__(self, name: str, role: str, goal: str, backstory: str):
-        self.name = name
-        self.role = role
-        self.goal = goal
-        self.backstory = backstory
-    
-    def get_data_context(self, session_id: str, file_id: Optional[str] = None) -> str:
-        """Get context about the available data for the session."""
-        try:
-            df = get_dataframe(session_id, file_id)
-            return data_context_builder.build_context(df, max_rows=5, include_stats=True)
-        except Exception as e:
-            logger.error(f"Error getting data context: {e}")
-            return f"Error accessing data: {str(e)}"
-    
-    def _get_client(self):
-        """Get the Gemini client instance."""
-        return get_gemini_client()
 
 
 class VisualizationAgent(BaseAgent):
@@ -320,7 +298,7 @@ class InsightsAgent(BaseAgent):
 class AgentOrchestrator:
     """
     Orchestrates requests between specialized agents.
-    Uses AI-based routing for accurate agent selection.
+    Enhanced with prediction, statistics, and EDA capabilities.
     """
     
     def __init__(self):
@@ -329,20 +307,57 @@ class AgentOrchestrator:
         self.package_manager_agent = PackageManagerAgent()
         self.insights_agent = InsightsAgent()
         
+        # Import new specialized agents
+        try:
+            from .prediction_agent import prediction_agent
+            self.prediction_agent = prediction_agent
+        except ImportError:
+            self.prediction_agent = None
+            logger.warning("PredictionAgent not available")
+        
+        try:
+            from .statistics_agent import statistics_agent
+            self.statistics_agent = statistics_agent
+        except ImportError:
+            self.statistics_agent = None
+            logger.warning("StatisticsAgent not available")
+        
+        try:
+            from .eda_agent import eda_agent
+            self.eda_agent = eda_agent
+        except ImportError:
+            self.eda_agent = None
+            logger.warning("EDAAgent not available")
+        
+        # Import SQL Agent for database queries
+        try:
+            from .sql_agent import sql_agent
+            self.sql_agent = sql_agent
+        except ImportError:
+            self.sql_agent = None
+            logger.warning("SQLAgent not available")
+        
         self._agents = {
             'visualization': self.visualization_agent,
             'code-generation': self.code_execution_agent,
             'package-manager': self.package_manager_agent,
-            'insights': self.insights_agent
+            'insights': self.insights_agent,
+            'prediction': self.prediction_agent,
+            'statistics': self.statistics_agent,
+            'eda': self.eda_agent,
+            'sql': self.sql_agent
         }
     
-    def get_agent(self, agent_name: str) -> BaseAgent:
+    def get_agent(self, agent_name: str):
         """Get an agent by name."""
-        return self._agents.get(agent_name, self.code_execution_agent)
+        agent = self._agents.get(agent_name)
+        if agent is None:
+            return self.code_execution_agent
+        return agent
     
     def route_request(self, user_request: str) -> Dict[str, Any]:
         """
-        Route a request to the appropriate agent using AI.
+        Route a request to the appropriate agent using enhanced keyword matching.
         
         Args:
             user_request: The user's request
@@ -350,21 +365,168 @@ class AgentOrchestrator:
         Returns:
             Dictionary with selected agent and routing info
         """
+        request_lower = user_request.lower()
+        
+        # Enhanced keyword-based routing for accuracy
+        routing_rules = [
+            {
+                'agent': 'sql',
+                'keywords': ['database', 'sql', 'query', 'table', 'postgres', 'mysql', 
+                            'select', 'from table', 'join', 'schema', 'records'],
+                'confidence': 0.95
+            },
+            {
+                'agent': 'prediction',
+                'keywords': ['predict', 'forecast', 'projection', 'future', 'estimate', 
+                            'by 2025', 'by 2026', 'by 2030', 'next year', 'will be'],
+                'confidence': 0.9
+            },
+            {
+                'agent': 'statistics',
+                'keywords': ['significant', 'correlation', 't-test', 'test', 'p-value', 
+                            'hypothesis', 'compare', 'anova', 'chi-square'],
+                'confidence': 0.9
+            },
+            {
+                'agent': 'eda',
+                'keywords': ['explore', 'eda', 'exploratory', 'profile', 'overview', 
+                            'summary', 'describe', 'distribution', 'missing values'],
+                'confidence': 0.85
+            },
+            {
+                'agent': 'visualization',
+                'keywords': ['chart', 'plot', 'graph', 'visualiz', 'histogram', 
+                            'scatter', 'bar chart', 'line chart', 'heatmap'],
+                'confidence': 0.9
+            },
+            {
+                'agent': 'insights',
+                'keywords': ['insight', 'pattern', 'trend', 'finding', 'key', 'important'],
+                'confidence': 0.8
+            }
+        ]
+        
+        # Check each routing rule
+        for rule in routing_rules:
+            if any(kw in request_lower for kw in rule['keywords']):
+                return {
+                    "agent": rule['agent'],
+                    "confidence": rule['confidence'],
+                    "reason": f"Keywords match {rule['agent']} capabilities"
+                }
+        
+        # Fallback to AI-based routing
         try:
             client = get_gemini_client()
-            return client.route_to_agent(user_request)
-        except Exception as e:
-            logger.error(f"Error routing request: {e}")
-            # Fallback to code-generation agent
+            # The new GeminiClient doesn't have route_to_agent method yet
+            # For now, let's implement a simple prompt-based routing here directly
+            
+            prompt = f"""Analyze the following user request and determine the best specialized agent to handle it.
+            
+            User Request: {user_request}
+            
+            Available Agents:
+            - sql: Database queries, SQL generation, schema questions
+            - visualization: Charts, graphs, plots
+            - prediction: Forecasting, future estimates
+            - statistics: Hypothesis testing, correlation, statistical analysis
+            - eda: Exploratory analysis, data profiling, summary
+            - insights: Finding patterns, trends, general analysis
+            - code-generation: Writing python code, data processing
+            
+            Return ONLY the agent name (lowercase)."""
+            
+            response = client.generate_response(
+                session_id="routing_session",
+                user_message=prompt,
+                use_chat_history=False
+            )
+            
+            agent_name = response.get("response", "").strip().lower()
+            
+            # Validate response
+            valid_agents = ['sql', 'visualization', 'prediction', 'statistics', 'eda', 'insights', 'code-generation']
+            if agent_name in valid_agents:
+                return {
+                    "agent": agent_name,
+                    "confidence": 0.8,
+                    "reason": "AI routed"
+                }
+            
             return {
                 "agent": "code-generation",
                 "confidence": 0.5,
-                "reason": "Fallback due to routing error"
+                "reason": "Default fallback"
             }
+            
+        except Exception as e:
+            logger.error(f"Error routing request: {e}")
+            # Default fallback
+            return {
+                "agent": "code-generation",
+                "confidence": 0.5,
+                "reason": "Default routing"
+            }
+
     
     def list_agents(self) -> List[Dict[str, Any]]:
         """List all available agents and their capabilities."""
-        return [
+        agents_list = [
+            {
+                "id": "sql",
+                "name": "SQL Agent",
+                "role": "Database Query Expert",
+                "goal": "Answer questions about your database using natural language",
+                "capabilities": [
+                    "Natural language to SQL conversion",
+                    "PostgreSQL, MySQL, SQLite support",
+                    "Query explanation in plain English",
+                    "Query optimization suggestions",
+                    "Schema exploration and visualization",
+                    "Auto-training from database schema"
+                ]
+            },
+            {
+                "id": "prediction",
+                "name": "Prediction Agent",
+                "role": "Forecast & Predict",
+                "goal": "Make accurate predictions using multiple statistical models",
+                "capabilities": [
+                    "Linear regression predictions",
+                    "Polynomial regression",
+                    "Exponential growth/CAGR",
+                    "Model comparison with R² scores",
+                    "Confidence intervals"
+                ]
+            },
+            {
+                "id": "statistics",
+                "name": "Statistics Agent",
+                "role": "Statistical Analysis",
+                "goal": "Perform rigorous hypothesis testing and statistical analysis",
+                "capabilities": [
+                    "T-tests (independent and paired)",
+                    "Chi-square tests",
+                    "ANOVA",
+                    "Correlation analysis",
+                    "A/B testing",
+                    "Confidence intervals"
+                ]
+            },
+            {
+                "id": "eda",
+                "name": "EDA Agent",
+                "role": "Exploratory Analysis",
+                "goal": "Comprehensive exploratory data analysis",
+                "capabilities": [
+                    "Univariate analysis",
+                    "Bivariate analysis",
+                    "Distribution analysis",
+                    "Missing value detection",
+                    "Outlier detection",
+                    "Auto-generated insights"
+                ]
+            },
             {
                 "id": "visualization",
                 "name": self.visualization_agent.name,
@@ -413,6 +575,7 @@ class AgentOrchestrator:
                 ]
             }
         ]
+        return agents_list
 
 
 # Create instances for backward compatibility
@@ -421,5 +584,6 @@ code_execution_agent = CodeExecutionAgent()
 package_manager_agent = PackageManagerAgent()
 insights_agent = InsightsAgent()
 
-# Export the orchestrator
+# Export the orchestrator with all agents
 agent_orchestrator = AgentOrchestrator()
+
