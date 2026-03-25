@@ -18,7 +18,7 @@ import {
   Filler,
 } from 'chart.js';
 import { Bar, Line, Pie, Scatter, Doughnut } from 'react-chartjs-2';
-import { HeatMapGrid } from '@/components/data/HeatMapGrid';
+
 
 // Register ChartJS components
 ChartJS.register(
@@ -78,16 +78,13 @@ export function ChartDisplay({ chartType, chartData, chartConfig }: ChartDisplay
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
-    // Check for dark mode
     const checkDarkMode = () => {
-      setIsDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
     };
-    
     checkDarkMode();
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    mediaQuery.addEventListener('change', checkDarkMode);
-    
-    return () => mediaQuery.removeEventListener('change', checkDarkMode);
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
   }, []);
 
   const textColor = isDarkMode ? '#ededed' : '#111827';
@@ -357,11 +354,30 @@ export function ChartDisplay({ chartType, chartData, chartConfig }: ChartDisplay
     if (chartType === 'heatmap' && chartData.chart_data) {
       if (chartData.chart_data.x && chartData.chart_data.y && chartData.chart_data.z) {
         return (
-          <HeatMapGrid
-            data={chartData.chart_data.z}
-            xLabels={chartData.chart_data.x}
-            yLabels={chartData.chart_data.y}
-          />
+          <div className="overflow-auto text-xs">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className="p-1 border border-[var(--border-color)]"></th>
+                  {chartData.chart_data.x.map((x: string) => (
+                    <th key={x} className="p-1 border border-[var(--border-color)] text-[var(--text-secondary)]">{x}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {chartData.chart_data.y.map((y: string, ri: number) => (
+                  <tr key={y}>
+                    <td className="p-1 border border-[var(--border-color)] font-medium text-[var(--text-secondary)]">{y}</td>
+                    {chartData.chart_data.z[ri]?.map((val: number, ci: number) => (
+                      <td key={ci} className="p-1 border border-[var(--border-color)] text-center" style={{ backgroundColor: `rgba(59, 130, 246, ${Math.min(1, Math.abs(val))})`, color: Math.abs(val) > 0.5 ? '#fff' : 'var(--text-primary)' }}>
+                        {typeof val === 'number' ? val.toFixed(2) : val}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         );
       }
       return (

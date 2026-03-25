@@ -1,20 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChatInterface } from '@/components/agent/ChatInterface';
 import { CodeCanvas } from '@/components/agent/CodeCanvas';
 import { DataSelector } from '@/components/agent/DataSelector';
-import { AgentSelector } from '@/components/agent/AgentSelector';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { FileUpload } from '@/components/data/FileUpload';
+import ReactMarkdown from 'react-markdown';
 import {
   chatWithAgent,
   executeCode,
   generateInsights,
   getChatHistory,
   clearChatHistory,
-  createVisualization,
-  generateCodeWithAgent,
-  getPackageRecommendations,
-  generateInsightsWithAgent
 } from '@/lib/api';
 
 interface Message {
@@ -46,139 +44,76 @@ export default function AgentPage() {
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [activeConnectionId, setActiveConnectionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [currentCode, setCurrentCode] = useState(`# Select a file or database to start analyzing
-# The code canvas will update based on your selection
-`);
+  const [currentCode, setCurrentCode] = useState('');
   const [executionResult, setExecutionResult] = useState<ExecutionResult | undefined>();
   const [loading, setLoading] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
-  const [selectedAgent, setSelectedAgent] = useState<string>('visualization');
-  const [currentMessage, setCurrentMessage] = useState<string>('');
+  const [showWorkspace, setShowWorkspace] = useState(true);
+  const [showUpload, setShowUpload] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load session data from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const storedSessionId = localStorage.getItem('sessionId');
       const storedActiveFileId = localStorage.getItem('activeFileId');
-      
+      const storedConnectionId = localStorage.getItem('activeConnectionId');
+
       if (storedSessionId) {
         setSessionId(storedSessionId);
         if (storedActiveFileId) {
           setActiveFileId(storedActiveFileId);
-          // Pre-populate code if file selected
-          setCurrentCode(`# Analyzing file: ${storedActiveFileId}
-print("Dataset shape:", df.shape)
-print("Dataset columns:", df.columns.tolist())
-print("First few rows:")
-print(df.head())
-`);
+        }
+        if (storedConnectionId) {
+          setActiveConnectionId(storedConnectionId);
         }
         loadChatHistory(storedSessionId);
       }
     }
   }, []);
 
-  const loadChatHistory = async (sessionId: string) => {
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const loadChatHistory = async (sid: string) => {
     try {
-      const response = await getChatHistory(sessionId);
+      const response = await getChatHistory(sid);
       if (response.success && response.history) {
-        const formattedMessages: Message[] = response.history.map((msg: any, index: number) => ({
-          id: `${index}`,
+        const formatted: Message[] = response.history.map((msg: any, i: number) => ({
+          id: `hist-${i}`,
           role: msg.role === 'user' ? 'user' : 'assistant',
           content: msg.content,
-          timestamp: new Date()
+          timestamp: new Date(),
         }));
-        setMessages(formattedMessages);
+        setMessages(formatted);
       }
-    } catch (error) {
-      console.error('Error loading chat history:', error);
+    } catch (err) {
+      console.error('Error loading chat history:', err);
     }
   };
 
   const handleSendMessage = async (message: string) => {
     if (!sessionId) return;
 
-    setCurrentMessage(message);
-
-    // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: message,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setLoading(true);
 
     try {
-      let response;
-
-      // If database is active, prioritize using chatWithAgent which now supports connections
-      if (activeConnectionId) {
-        response = await chatWithAgent(
-          sessionId, 
-          message, 
-          undefined, 
-          true, 
-          activeConnectionId
-        );
-      } else {
-        // Auto-select agent based on message content
-        let agentToUse = selectedAgent;
-        const messageLower = message.toLowerCase();
-
-        // Check for visualization requests
-        if (messageLower.includes('chart') ||
-            messageLower.includes('graph') ||
-            messageLower.includes('plot') ||
-            messageLower.includes('visualiz') ||
-            messageLower.includes('show me') ||
-            messageLower.includes('create') ||
-            messageLower.includes('generate') ||
-            messageLower.includes('draw')) {
-          agentToUse = 'visualization';
-        }
-        // Check for insights requests
-        else if (messageLower.includes('insight') ||
-                 messageLower.includes('pattern') ||
-                 messageLower.includes('trend') ||
-                 messageLower.includes('summary') ||
-                 messageLower.includes('analyze') ||
-                 messageLower.includes('analysis')) {
-          agentToUse = 'insights';
-        }
-        // Check for simple text questions (use general chat)
-        else if (messageLower.includes('what is') ||
-                 messageLower.includes('explain') ||
-                 messageLower.includes('tell me about') ||
-                 messageLower.includes('how many') ||
-                 messageLower.includes('which') ||
-                 messageLower.includes('why') ||
-                 messageLower.includes('when')) {
-          agentToUse = 'text-only';
-        }
-
-        // Use specialized agent based on selection
-        switch (agentToUse) {
-          case 'visualization':
-            response = await createVisualization(sessionId, message, activeFileId || undefined, true);
-            break;
-          case 'code-generation':
-            response = await generateCodeWithAgent(sessionId, message, activeFileId || undefined, true);
-            break;
-          case 'insights':
-            response = await generateInsightsWithAgent(sessionId, activeFileId || undefined, 'general', true);
-            break;
-          case 'package-recommendations':
-            response = await getPackageRecommendations(message);
-            break;
-          case 'text-only':
-            response = await chatWithAgent(sessionId, message, activeFileId || undefined, false); // No auto-execute for text
-            break;
-          default:
-            response = await createVisualization(sessionId, message, activeFileId || undefined, true);
-        }
-      }
+      // Route everything through the unified V1 agent endpoint
+      // (which internally uses ReActAgent via V2 backend)
+      const response = await chatWithAgent(
+        sessionId,
+        message,
+        activeFileId || undefined,
+        true,
+        activeConnectionId || undefined,
+      );
 
       if (response.success) {
         const assistantMessage: Message = {
@@ -186,34 +121,29 @@ print(df.head())
           role: 'assistant',
           content: response.response,
           codeBlocks: response.code_blocks || [],
-          timestamp: new Date()
+          timestamp: new Date(),
         };
-        setMessages(prev => [...prev, assistantMessage]);
+        setMessages((prev) => [...prev, assistantMessage]);
 
-        // If there's executed code, set it in the canvas
         if (response.executed_code) {
           setCurrentCode(response.executed_code);
         }
-
-        // If there's an execution result, set it
         if (response.execution_result) {
-          // Adapt DB result if needed or standard result
           setExecutionResult(response.execution_result);
-          // Only switch code in canvas if it's new
-          if (!response.executed_code) {
-             // For DB query results that don't return python code, we might want to keep the SQL visible or blank
-          }
+          setShowWorkspace(true);
         }
       }
     } catch (error) {
-      console.error('Error sending message:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Sorry, I encountered an error while processing your request. Please try again.',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      console.error('Error:', error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: 'Sorry, I encountered an error. Please try again.',
+          timestamp: new Date(),
+        },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -221,14 +151,6 @@ print(df.head())
 
   const handleExecuteCode = async (code: string) => {
     if (!sessionId) return;
-
-    // Database queries cannot be "executed" like Python code in the same way here yet,
-    // unless we wrap them. For now, assume this is Python code execution for files.
-    if (activeConnectionId) {
-        // If it's SQL, we could potentially run it via API, but CodeCanvas is mainly Python.
-        // We'll skip for DB context for now or treat as Python if user writes Python.
-    }
-
     setCodeLoading(true);
     setCurrentCode(code);
 
@@ -240,9 +162,9 @@ print(df.head())
       setExecutionResult({
         success: false,
         output: '',
-        error: 'Failed to execute code. Please try again.',
+        error: 'Failed to execute code.',
         plots: [],
-        variables: {}
+        variables: {},
       });
     } finally {
       setCodeLoading(false);
@@ -251,44 +173,28 @@ print(df.head())
 
   const handleGenerateInsights = async () => {
     if (!sessionId) return;
-
     setLoading(true);
 
     try {
-      let response;
-      if (activeConnectionId) {
-        // Use generic chat for DB insights for now
-        response = await chatWithAgent(
-            sessionId,
-            "Analyze this database and provide key insights about the data.",
-            undefined,
-            true,
-            activeConnectionId
-        );
-      } else {
-        response = await generateInsights(sessionId, activeFileId || undefined);
-      }
-
+      const response = await generateInsights(sessionId, activeFileId || undefined);
       if (response.success) {
-        const insightsMessage: Message = {
+        const insightsMsg: Message = {
           id: Date.now().toString(),
           role: 'assistant',
           content: response.insights || response.response,
           codeBlocks: response.code_blocks || [],
-          timestamp: new Date()
+          timestamp: new Date(),
         };
-        setMessages(prev => [...prev, insightsMessage]);
+        setMessages((prev) => [...prev, insightsMsg]);
 
-        // If there are code blocks, execute the first Python code block automatically
-        const pythonCode = response.code_blocks?.find((block: any) => block.language === 'python');
+        const pythonCode = response.code_blocks?.find((b: any) => b.language === 'python');
         if (pythonCode) {
           setCurrentCode(pythonCode.code);
-          // Auto-execute the insights code
           handleExecuteCode(pythonCode.code);
         }
       }
-    } catch (error) {
-      console.error('Error generating insights:', error);
+    } catch (err) {
+      console.error('Error generating insights:', err);
     } finally {
       setLoading(false);
     }
@@ -296,58 +202,80 @@ print(df.head())
 
   const handleClearChat = async () => {
     if (!sessionId) return;
-
     try {
       await clearChatHistory(sessionId);
       setMessages([]);
       setCurrentCode('');
       setExecutionResult(undefined);
-    } catch (error) {
-      console.error('Error clearing chat:', error);
+    } catch (err) {
+      console.error('Error clearing chat:', err);
     }
   };
 
   const handleFileSelect = (fileId: string) => {
     setActiveFileId(fileId);
-    setActiveConnectionId(null); // Clear connection selection
+    setActiveConnectionId(null);
     if (typeof window !== 'undefined') {
       localStorage.setItem('activeFileId', fileId);
     }
-    // Update code canvas hint
-    setCurrentCode(`# Active File: ${fileId}
-# Use pandas to analyze: df.head()
-print(df.info())
-`);
   };
 
   const handleConnectionSelect = (connectionId: string) => {
     setActiveConnectionId(connectionId);
-    setActiveFileId(null); // Clear file selection
+    setActiveFileId(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('activeFileId');
     }
-    // Update code canvas hint
-    setCurrentCode(`-- Active Database Connection: ${connectionId}
--- You can ask natural language questions in the chat.
--- SQL queries generated will appear here.
-/* Example: SELECT * FROM users LIMIT 5; */
-`);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleAgentSelect = (agentType: string, _agentName: string) => {
-    setSelectedAgent(agentType);
+  const handleUploadSuccess = (data: any) => {
+    if (data.session_id) {
+      setSessionId(data.session_id);
+      localStorage.setItem('sessionId', data.session_id);
+    }
+    if (data.files && data.files.length > 0) {
+      setActiveFileId(data.files[0].file_id);
+      localStorage.setItem('activeFileId', data.files[0].file_id);
+    }
+    setShowUpload(false);
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-[var(--bg-secondary)] overflow-hidden">
-      {/* Left Sidebar - Data Context */}
-      <div className="w-80 flex-shrink-0 border-r border-[var(--border-color)] bg-[var(--bg-primary)] flex flex-col">
-        <div className="p-4 border-b border-[var(--border-color)]">
-          <h2 className="font-semibold text-[var(--text-primary)] mb-1">Context</h2>
-          <p className="text-xs text-[var(--text-tertiary)]">Select data source to analyze</p>
+    <div className="flex h-screen bg-[var(--bg-secondary)] overflow-hidden">
+      {/* ─── Left Sidebar: Context ─── */}
+      <div className="w-72 flex-shrink-0 border-r border-[var(--border-color)] bg-[var(--bg-primary)] flex flex-col">
+        {/* Sidebar Header */}
+        <div className="h-14 flex items-center justify-between px-4 border-b border-[var(--border-color)]">
+          <a href="/" className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold">
+              D
+            </div>
+            <span className="font-semibold text-sm text-[var(--text-primary)]">
+              Data<span className="text-[var(--accent)]">Agent</span>
+            </span>
+          </a>
+          <ThemeToggle />
         </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+
+        {/* Data Context */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          {/* Upload button */}
+          <button
+            onClick={() => setShowUpload(!showUpload)}
+            className="w-full btn btn-secondary text-xs py-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            {showUpload ? 'Cancel' : 'Upload Data'}
+          </button>
+
+          {showUpload && (
+            <div className="modern-card p-3 animate-fade-in">
+              <FileUpload onUploadSuccess={handleUploadSuccess} />
+            </div>
+          )}
+
           <DataSelector
             sessionId={sessionId}
             activeFileId={activeFileId}
@@ -356,98 +284,173 @@ print(df.info())
             onConnectionSelect={handleConnectionSelect}
             onGenerateInsights={handleGenerateInsights}
           />
-          
-          <div className="pt-4 border-t border-[var(--border-color)]">
-             <AgentSelector
-              onAgentSelect={handleAgentSelect}
-              currentMessage={currentMessage}
-            />
-          </div>
+        </div>
+
+        {/* Sidebar Footer */}
+        <div className="p-3 border-t border-[var(--border-color)] text-[10px] text-[var(--text-tertiary)] text-center">
+          {sessionId ? (
+            <span className="flex items-center justify-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)]" />
+              Session active
+            </span>
+          ) : (
+            'No data loaded'
+          )}
         </div>
       </div>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[var(--bg-secondary)] relative">
-        <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
-          <div className="max-w-4xl mx-auto space-y-6 pb-24">
+      {/* ─── Main Chat Area ─── */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Chat Header */}
+        <div className="h-14 flex items-center justify-between px-6 border-b border-[var(--border-color)] bg-[var(--bg-primary)]">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold">
+              AI
+            </div>
+            <div>
+              <h1 className="text-sm font-semibold text-[var(--text-primary)]">AI Agent</h1>
+              <p className="text-[11px] text-[var(--text-tertiary)]">
+                {loading ? 'Thinking...' : 'Ready to analyze'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {messages.length > 0 && (
+              <button onClick={handleClearChat} className="btn btn-ghost text-xs py-1.5 px-3">
+                Clear
+              </button>
+            )}
+            <button
+              onClick={() => setShowWorkspace(!showWorkspace)}
+              className={`btn text-xs py-1.5 px-3 ${showWorkspace ? 'btn-primary' : 'btn-secondary'}`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              </svg>
+              Workspace
+            </button>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-3xl mx-auto space-y-5 pb-4">
             {messages.length === 0 ? (
-              <div className="text-center py-20">
-                <div className="w-16 h-16 bg-[var(--accent-subtle)] text-[var(--accent-primary)] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              <div className="text-center py-16 animate-fade-in">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/10 to-violet-500/10 border border-[var(--border-color)] flex items-center justify-center mx-auto mb-6">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
                   </svg>
                 </div>
-                <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
-                  AI Data Assistant
-                </h1>
-                <p className="text-[var(--text-secondary)] max-w-md mx-auto">
-                  Ask questions about your data, generate visualizations, or run custom analysis. Select a data source to get started.
+                <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
+                  What can I help you analyze?
+                </h2>
+                <p className="text-[var(--text-secondary)] max-w-md mx-auto mb-8">
+                  {sessionId
+                    ? 'Ask me anything about your data — analysis, charts, ML, or custom code.'
+                    : 'Upload a dataset to get started, then ask me anything.'}
                 </p>
-                <div className="mt-8 grid grid-cols-2 gap-4 max-w-lg mx-auto text-left">
-                  <button 
-                    onClick={() => handleSendMessage("Show me a summary of this dataset")}
-                    className="p-4 rounded-xl bg-[var(--bg-primary)] border border-[var(--border-color)] hover:border-[var(--accent-primary)] hover:shadow-md transition-all group"
-                  >
-                    <span className="block font-medium text-[var(--text-primary)] group-hover:text-[var(--accent-primary)] mb-1">Analyze Data</span>
-                    <span className="text-xs text-[var(--text-tertiary)]">Get a comprehensive summary</span>
-                  </button>
-                  <button 
-                    onClick={() => handleSendMessage("Visualize the distribution of the main columns")}
-                    className="p-4 rounded-xl bg-[var(--bg-primary)] border border-[var(--border-color)] hover:border-[var(--accent-primary)] hover:shadow-md transition-all group"
-                  >
-                    <span className="block font-medium text-[var(--text-primary)] group-hover:text-[var(--accent-primary)] mb-1">Visualize</span>
-                    <span className="text-xs text-[var(--text-tertiary)]">Create charts and graphs</span>
-                  </button>
-                </div>
+
+                {sessionId && (
+                  <div className="grid grid-cols-2 gap-3 max-w-lg mx-auto">
+                    {[
+                      { label: 'Summarize dataset', icon: '📊' },
+                      { label: 'Find correlations', icon: '🔗' },
+                      { label: 'Visualize distributions', icon: '📈' },
+                      { label: 'Detect anomalies', icon: '🔍' },
+                    ].map((suggestion) => (
+                      <button
+                        key={suggestion.label}
+                        onClick={() => handleSendMessage(suggestion.label)}
+                        className="p-3 rounded-xl bg-[var(--bg-primary)] border border-[var(--border-color)] hover:border-[var(--accent)] text-left transition-colors group"
+                      >
+                        <span className="text-lg mr-2">{suggestion.icon}</span>
+                        <span className="text-sm text-[var(--text-primary)] group-hover:text-[var(--accent)]">
+                          {suggestion.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               messages.map((msg) => (
-                <div 
-                  key={msg.id} 
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
                 >
-                  <div className={`chat-bubble ${
-                    msg.role === 'user' 
-                      ? 'chat-bubble-user shadow-md' 
-                      : 'chat-bubble-ai shadow-sm'
-                  }`}>
+                  <div
+                    className={`chat-bubble ${
+                      msg.role === 'user'
+                        ? 'chat-bubble-user'
+                        : 'chat-bubble-ai'
+                    }`}
+                  >
                     {msg.role === 'assistant' && (
-                      <div className="flex items-center gap-2 mb-2 text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wide">
-                        <div className="w-4 h-4 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-white text-[8px]">AI</div>
-                        Assistant
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-[9px] font-bold">
+                          AI
+                        </div>
+                        <span className="text-[11px] font-medium text-[var(--text-tertiary)] uppercase tracking-wider">
+                          Agent
+                        </span>
                       </div>
                     )}
-                    <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
-                      {msg.content}
+                    <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed">
+                      {msg.role === 'user' ? (
+                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                      ) : (
+                        <ReactMarkdown
+                          components={{
+                            code: ({ inline, className, children, ...props }: any) => {
+                              if (inline) {
+                                return (
+                                  <code className="bg-[var(--bg-secondary)] text-[var(--accent)] px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
+                                    {children}
+                                  </code>
+                                );
+                              }
+                              // We already extract code blocks to a separate UI, so we just return null for block code in markdown
+                              return null;
+                            },
+                            p: ({ children }) => <p className="mb-3 last:mb-0 text-[var(--text-primary)]">{children}</p>,
+                            strong: ({ children }) => <strong className="font-semibold text-[var(--text-primary)]">{children}</strong>,
+                            ul: ({ children }) => <ul className="list-disc list-inside mb-3 space-y-1 text-[var(--text-secondary)]">{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal list-inside mb-3 space-y-1 text-[var(--text-secondary)]">{children}</ol>,
+                            li: ({ children }) => <li>{children}</li>,
+                            h2: ({ children }) => <h2 className="text-base font-semibold mt-4 mb-2 text-[var(--text-primary)]">{children}</h2>,
+                            h3: ({ children }) => <h3 className="text-sm font-semibold mt-3 mb-2 text-[var(--text-primary)]">{children}</h3>,
+                          }}
+                        >
+                          {/* Strip raw markdown code blocks from the content since we render them separately below */}
+                          {msg.content.replace(/```[a-z]*\n[\s\S]*?```/g, '').trim()}
+                        </ReactMarkdown>
+                      )}
                     </div>
+
                     {msg.codeBlocks && msg.codeBlocks.length > 0 && (
                       <div className="mt-3">
-                        <details className="group border border-[var(--border-color)] rounded-lg overflow-hidden bg-[var(--bg-tertiary)] open:bg-[var(--bg-primary)]">
-                          <summary className="flex items-center justify-between p-2 cursor-pointer select-none text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                        <details className="group rounded-lg overflow-hidden border border-[var(--border-color)]">
+                          <summary className="flex items-center justify-between p-2.5 cursor-pointer text-xs font-medium text-[var(--text-secondary)] bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)]">
                             <div className="flex items-center gap-2">
-                              <svg className="w-4 h-4 text-[var(--text-tertiary)] group-open:rotate-90 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg className="w-3.5 h-3.5 group-open:rotate-90 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                               </svg>
-                              <span>View Analysis Code</span>
+                              Code ({msg.codeBlocks.length})
                             </div>
-                            <span className="text-[10px] bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded border border-[var(--border-color)]">
-                              {msg.codeBlocks.length} block{msg.codeBlocks.length > 1 ? 's' : ''}
-                            </span>
                           </summary>
                           <div className="border-t border-[var(--border-color)]">
                             {msg.codeBlocks.map((block, idx) => (
                               <div key={idx} className="relative group/code">
-                                <div className="absolute top-2 right-2 opacity-0 group-hover/code:opacity-100 transition-opacity z-10 flex gap-1">
-                                  <button 
+                                <div className="absolute top-2 right-2 opacity-0 group-hover/code:opacity-100 transition-opacity z-10">
+                                  <button
                                     onClick={() => handleExecuteCode(block.code)}
-                                    className="p-1 bg-[var(--accent-primary)] text-white rounded text-[10px] hover:bg-[var(--accent-hover)] flex items-center gap-1 shadow-sm"
-                                    title="Run this code"
+                                    className="px-2 py-1 bg-[var(--accent)] text-white rounded text-[10px] hover:bg-[var(--accent-hover)] flex items-center gap-1"
                                   >
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    Run
+                                    ▶ Run
                                   </button>
                                 </div>
-                                <pre className="p-3 bg-[#1e1e1e] text-[#d4d4d4] overflow-x-auto text-[11px] font-mono m-0 leading-relaxed">
+                                <pre className="p-3 bg-[#0d1117] text-[#c9d1d9] overflow-x-auto text-[11px] font-mono leading-relaxed m-0">
                                   {block.code}
                                 </pre>
                               </div>
@@ -460,54 +463,67 @@ print(df.info())
                 </div>
               ))
             )}
+
             {loading && (
-              <div className="flex justify-start">
-                <div className="chat-bubble chat-bubble-ai shadow-sm flex items-center gap-3">
+              <div className="flex justify-start animate-fade-in">
+                <div className="chat-bubble chat-bubble-ai flex items-center gap-3">
                   <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-[var(--text-tertiary)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-[var(--text-tertiary)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-[var(--text-tertiary)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
-                  <span className="text-sm text-[var(--text-tertiary)]">Thinking...</span>
+                  <span className="text-sm text-[var(--text-tertiary)]">Analyzing...</span>
                 </div>
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
         </div>
 
+        {/* Input */}
         <div className="p-4 bg-[var(--bg-primary)] border-t border-[var(--border-color)]">
-          <div className="max-w-4xl mx-auto relative">
+          <div className="max-w-3xl mx-auto">
             <ChatInterface
-              messages={[]} // Handled in parent layout now
+              messages={[]}
               onSendMessage={handleSendMessage}
               onExecuteCode={handleExecuteCode}
               loading={loading}
               sessionId={sessionId}
               onClearChat={handleClearChat}
-              hideHistory={true} // Custom prop to only show input
+              hideHistory={true}
             />
           </div>
         </div>
       </div>
 
-      {/* Right Sidebar - Code & Results (Collapsible or Permanent) */}
-      <div className="w-[400px] flex-shrink-0 border-l border-[var(--border-color)] bg-[var(--bg-primary)] flex flex-col">
-        <div className="p-3 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--bg-secondary)]">
-          <h2 className="font-semibold text-[var(--text-primary)] text-sm">Workspace</h2>
-          <div className="flex gap-2">
-             <span className={`w-2 h-2 rounded-full ${codeLoading ? 'bg-yellow-400 animate-pulse' : 'bg-green-500'}`}></span>
+      {/* ─── Right Sidebar: Workspace ─── */}
+      {showWorkspace && (
+        <div className="w-[420px] flex-shrink-0 border-l border-[var(--border-color)] bg-[var(--bg-primary)] flex flex-col animate-fade-in">
+          <div className="h-14 px-4 flex items-center justify-between border-b border-[var(--border-color)]">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)]">Workspace</h2>
+              <span className={`w-2 h-2 rounded-full ${codeLoading ? 'bg-[var(--warning)] animate-pulse' : 'bg-[var(--success)]'}`} />
+            </div>
+            <button
+              onClick={() => setShowWorkspace(false)}
+              className="btn btn-ghost p-1.5"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <CodeCanvas
+              code={currentCode}
+              onCodeChange={setCurrentCode}
+              onExecute={handleExecuteCode}
+              executionResult={executionResult}
+              loading={codeLoading}
+            />
           </div>
         </div>
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <CodeCanvas
-            code={currentCode}
-            onCodeChange={setCurrentCode}
-            onExecute={handleExecuteCode}
-            executionResult={executionResult}
-            loading={codeLoading}
-          />
-        </div>
-      </div>
+      )}
     </div>
   );
 }

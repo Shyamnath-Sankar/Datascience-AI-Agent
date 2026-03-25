@@ -1,21 +1,22 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/lib/theme-provider";
 import ConditionalLayout from "@/components/layout/ConditionalLayout";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Data Science Platform",
-  description: "A comprehensive platform for data analysis and machine learning",
+  title: "DataAgent — AI Data Scientist",
+  description: "Upload your data. Ask questions. Get instant analysis, visualizations, and ML insights.",
 };
 
 export default function RootLayout({
@@ -24,13 +25,34 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[var(--excel-bg)] min-h-screen`}
-      >
-        <ConditionalLayout>
-          {children}
-        </ConditionalLayout>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Prevent flash: apply theme before paint */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var t = localStorage.getItem('ds-agent-theme');
+                  var d = document.documentElement;
+                  if (t === 'dark') d.classList.add('dark');
+                  else if (t === 'light') d.classList.add('light');
+                  else {
+                    if (window.matchMedia('(prefers-color-scheme: dark)').matches) d.classList.add('dark');
+                    else d.classList.add('light');
+                  }
+                } catch(e) {}
+              })()
+            `,
+          }}
+        />
+      </head>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}>
+        <ThemeProvider defaultTheme="system">
+          <ConditionalLayout>
+            {children}
+          </ConditionalLayout>
+        </ThemeProvider>
       </body>
     </html>
   );

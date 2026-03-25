@@ -29,22 +29,26 @@ interface VariableInfo {
 
 interface CodeCanvasProps {
   code: string;
-  onCodeChange: (code: string) => void;
+  onChange: (code: string) => void; // Renamed from onCodeChange
   onExecute: (code: string) => void;
   executionResult?: ExecutionResult;
   loading?: boolean;
+  activeFileId?: string; // New prop
+  sessionId?: string; // New prop
 }
 
 export function CodeCanvas({
   code,
-  onCodeChange,
+  onChange, // Renamed from onCodeChange
   onExecute,
   executionResult,
-  loading = false
+  loading = false,
+  activeFileId, // New prop
+  sessionId // New prop
 }: CodeCanvasProps) {
-  const [activeTab, setActiveTab] = useState<'plots' | 'output' | 'variables' | 'code'>('plots');
+  const [activeTab, setActiveTab] = useState<'code' | 'output' | 'plots' | 'variables'>('code'); // Changed initial tab
   const [selectedPlotIndex, setSelectedPlotIndex] = useState(0);
-  const [isZoomed, setIsZoomed] = useState(false);
+  const [fullscreenPlot, setFullscreenPlot] = useState<string | null>(null); // New state
 
   // Auto-switch to appropriate tab when execution completes
   useEffect(() => {
@@ -141,7 +145,7 @@ export function CodeCanvas({
                 height="100%"
                 defaultLanguage="python"
                 value={code}
-                onChange={(value) => onCodeChange(value || '')}
+                onChange={(value) => onChange(value || '')}
                 theme="vs-light"
                 options={{
                   minimap: { enabled: false },
@@ -246,6 +250,13 @@ export function CodeCanvas({
                 <div className="modern-card p-2 relative group bg-white border border-[var(--border-color)]">
                   <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
                      <button
+                        onClick={() => setFullscreenPlot(executionResult.plots[selectedPlotIndex])}
+                        className="p-1.5 bg-white/90 backdrop-blur rounded shadow-sm hover:shadow text-[var(--text-secondary)] border border-[var(--border-color)]"
+                        title="Fullscreen"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+                      </button>
+                      <button
                         onClick={() => {
                           const link = document.createElement('a');
                           link.href = executionResult.plots[selectedPlotIndex];
@@ -261,7 +272,8 @@ export function CodeCanvas({
                   <img
                     src={executionResult.plots[selectedPlotIndex]}
                     alt={`Chart ${selectedPlotIndex + 1}`}
-                    className="w-full h-auto rounded"
+                    className="w-full h-auto rounded cursor-zoom-in"
+                    onClick={() => setFullscreenPlot(executionResult.plots[selectedPlotIndex])}
                   />
                 </div>
               </div>
@@ -273,6 +285,30 @@ export function CodeCanvas({
                 <span className="text-sm">No visualizations generated</span>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Fullscreen Plot Modal */}
+        {fullscreenPlot && (
+          <div 
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-8"
+            onClick={() => setFullscreenPlot(null)}
+          >
+            <div className="relative max-w-[90vw] max-h-[90vh] bg-white rounded-2xl overflow-hidden shadow-2xl animate-scale-in">
+              <button
+                onClick={(e) => { e.stopPropagation(); setFullscreenPlot(null); }}
+                className="absolute top-4 right-4 p-2 bg-black/10 hover:bg-black/20 rounded-full text-gray-800 transition-colors"
+                title="Close fullscreen"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+              <img 
+                src={fullscreenPlot} 
+                alt="Fullscreen Chart" 
+                className="w-full h-full object-contain max-h-[85vh] p-2"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
           </div>
         )}
 
