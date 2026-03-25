@@ -185,23 +185,60 @@ class CodeValidator:
     
     # Patterns that are blocked for security
     BLOCKED_PATTERNS = [
+        # Process execution
         r'\bos\.system\b',
         r'\bsubprocess\.',
         r'\beval\s*\(',
         r'\bexec\s*\(',
         r'__import__\s*\(',
-        r'\bopen\s*\([^)]*["\']w["\']',  # Writing to files
+        r'\bcompile\s*\([^)]*["\']exec["\']',
+        # File system destructive ops
+        r'\bopen\s*\([^)]*["\']w["\']',
+        r'\bopen\s*\([^)]*["\']a["\']',
         r'\brmtree\b',
         r'\bremove\b',
         r'\bunlink\b',
         r'\brm\s+-',
         r'\bdel\s+\/',
+        r'\bshutil\.(rmtree|move|copy)',
+        r'\bos\.(remove|unlink|rmdir|makedirs|rename)',
+        # Network access
         r'import\s+socket\b',
         r'from\s+socket\b',
-        r'import\s+requests\b',  # Block network requests for security
+        r'import\s+requests\b',
         r'from\s+requests\b',
         r'urllib\.request',
         r'httplib',
+        r'import\s+http\.',
+        r'from\s+http\.',
+        r'import\s+urllib\b',
+        r'from\s+urllib\b',
+        r'import\s+aiohttp\b',
+        r'from\s+aiohttp\b',
+        # Dangerous builtins
+        r'\bglobals\s*\(\s*\)',
+        r'\blocals\s*\(\s*\)',
+        r'\b__builtins__\b',
+        r'\b__class__\b',
+        r'\b__subclasses__\b',
+        r'\bgetattr\s*\(\s*__',
+        # System info / env
+        r'\bos\.environ\b',
+        r'\bos\.getenv\b',
+        r'\bos\.path\.expanduser\b',
+        r'\bsys\.exit\b',
+        r'\bexit\s*\(',
+        r'\bquit\s*\(',
+    ]
+    
+    # Modules that are completely blocked from import
+    BLOCKED_MODULES = [
+        'socket', 'http', 'urllib', 'requests', 'aiohttp', 'httpx',
+        'subprocess', 'shutil', 'tempfile', 'ctypes', 'multiprocessing',
+        'signal', 'pty', 'fcntl', 'resource', 'grp', 'pwd',
+        'webbrowser', 'antigravity', 'turtle', 'tkinter',
+        'smtplib', 'imaplib', 'poplib', 'ftplib', 'telnetlib',
+        'xmlrpc', 'pickle', 'shelve', 'marshal',
     ]
     
     # Safe imports that should always be available
@@ -209,7 +246,8 @@ class CodeValidator:
         'pandas', 'numpy', 'matplotlib', 'seaborn', 'sklearn',
         'scipy', 'statsmodels', 'plotly', 'math', 'statistics',
         'datetime', 'collections', 'itertools', 'functools',
-        'json', 'csv', 're', 'string'
+        'json', 'csv', 're', 'string', 'textwrap',
+        'warnings', 'copy', 'operator', 'decimal', 'fractions',
     ]
     
     @classmethod
@@ -223,9 +261,25 @@ class CodeValidator:
         Returns:
             Tuple of (is_valid, error_message)
         """
+        # Check blocked patterns
         for pattern in cls.BLOCKED_PATTERNS:
             if re.search(pattern, code, re.IGNORECASE):
                 return False, f"Blocked pattern detected: {pattern}"
+        
+        # Check blocked module imports
+        import_pattern = r'(?:import|from)\s+([\w.]+)'
+        for match in re.finditer(import_pattern, code):
+            module = match.group(1).split('.')[0]
+            if module in cls.BLOCKED_MODULES:
+                return False, f"Blocked module: {module}"
+        
+        # Check for excessive code length (potential DoS)
+        if len(code) > 50000:
+            return False, "Code exceeds maximum length (50,000 characters)"
+        
+        # Check for infinite loop patterns (basic heuristic)
+        if re.search(r'while\s+True\s*:', code) and 'break' not in code:
+            return False, "Potential infinite loop detected (while True without break)"
         
         return True, ""
     
@@ -238,6 +292,13 @@ class CodeValidator:
         # Remove any attempts to load external files
         code = re.sub(r"pd\.read_csv\(['\"][^'\"]*['\"]", "df  # Using pre-loaded data", code)
         code = re.sub(r"pd\.read_excel\(['\"][^'\"]*['\"]", "df  # Using pre-loaded data", code)
+        code = re.sub(r"pd\.read_json\(['\"][^'\"]*['\"]", "df  # Using pre-loaded data", code)
+        code = re.sub(r"pd\.read_parquet\(['\"][^'\"]*['\"]", "df  # Using pre-loaded data", code)
+        
+        # Remove attempts to save files
+        code = re.sub(r"\.to_csv\(['\"][^'\"]*['\"]", ".to_string()", code)
+        code = re.sub(r"\.to_excel\(['\"][^'\"]*['\"]", ".to_string()", code)
+        code = re.sub(r"plt\.savefig\([^)]*\)", "plt.show()", code)
         
         return code
 

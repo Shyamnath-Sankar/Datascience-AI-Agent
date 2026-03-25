@@ -4,8 +4,11 @@ from .react_agent import (
     MultiAgentOrchestrator,
     PlanningAgent,
     ReasoningTrace,
-    AgentAction,
-    AgentObservation,
+    ThoughtStep,
+    ReasoningStep,
+    Tool,
+    ToolType,
+    ToolExecutorRegistry,
 )
 
 __all__ = [
@@ -13,6 +16,9 @@ __all__ = [
     "MultiAgentOrchestrator",
     "PlanningAgent",
     "ReasoningTrace",
-    "AgentAction",
-    "AgentObservation",
+    "ThoughtStep",
+    "ReasoningStep",
+    "Tool",
+    "ToolType",
+    "ToolExecutorRegistry",
 ]
